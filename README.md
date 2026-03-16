@@ -25,12 +25,10 @@ A phone-first remote UI for [Pi](https://pi.dev) that lets you drive a real Pi s
 
 ## Install
 
-### Option 1 — install from GitHub with Pi
-
-This is the easiest way to install it as a Pi package today:
+Install `pi-phone` from npm with Pi:
 
 ```bash
-pi install git:github.com/MaliNamNam/pi-phone
+pi install npm:@malinamnam/pi-phone
 ```
 
 Then either restart Pi or run:
@@ -39,34 +37,11 @@ Then either restart Pi or run:
 /reload
 ```
 
-If you installed several packages and want to check whether this one is enabled:
+If you want to verify that the package is installed and enabled:
 
 ```bash
+pi list
 pi config
-```
-
-### Option 2 — manual local install for development
-
-Clone it into Pi's auto-discovered extensions directory and install dependencies:
-
-```bash
-git clone https://github.com/MaliNamNam/pi-phone ~/.pi/agent/extensions/pi-phone
-cd ~/.pi/agent/extensions/pi-phone
-npm install
-```
-
-Then start Pi and run:
-
-```text
-/reload
-```
-
-### Optional future npm install form
-
-If you later publish this package to npm, the standard Pi install command would look like:
-
-```bash
-pi install npm:@malinamnam/pi-phone
 ```
 
 ## Setup guide
@@ -268,16 +243,11 @@ Try:
 /reload
 ```
 
-If you installed it manually, make sure the files live at:
-
-```text
-~/.pi/agent/extensions/pi-phone/
-```
-
-and that you ran:
+Then verify the package is present and enabled:
 
 ```bash
-npm install
+pi list
+pi config
 ```
 
 ## Repository contents
@@ -286,6 +256,10 @@ npm install
 - `phone-session-pool.ts` — multi-session worker pool for phone clients
 - `public/` — mobile web app assets
 
-## Publishing note
+## Package name
 
-This repository is structured as a Pi package, so it can be installed from GitHub with `pi install git:github.com/MaliNamNam/pi-phone` and is also ready for future npm publishing under the package name `@malinamnam/pi-phone`.
+`pi-phone` is published on npm as:
+
+```text
+@malinamnam/pi-phone
+```
