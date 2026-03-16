@@ -70,6 +70,7 @@ const el = {
   quotaSecondary: document.querySelector('#quota-secondary'),
   refreshButton: document.querySelector('#refresh-button'),
   sendButton: document.querySelector('#send-button'),
+  stopButton: document.querySelector('#stop-button'),
   serverValue: document.querySelector('#server-value'),
   sessionBrowserButton: document.querySelector('#session-browser-button'),
   sessionSidebarButton: document.querySelector('#session-sidebar-button'),
@@ -695,6 +696,10 @@ function updateComposerState() {
   const sendLabel = streaming ? 'Queue message' : 'Send message';
 
   el.abortButton.disabled = !streaming;
+  if (el.stopButton) {
+    el.stopButton.disabled = !streaming;
+    el.stopButton.classList.toggle('hidden', !streaming);
+  }
   el.sendButton.textContent = '>';
   el.sendButton.setAttribute('aria-label', sendLabel);
   el.sendButton.setAttribute('title', sendLabel);
@@ -1980,6 +1985,7 @@ renderAttachmentStrip();
 
 el.refreshButton.addEventListener('click', refreshAll);
 el.abortButton.addEventListener('click', () => sendRpc({ type: 'abort' }));
+el.stopButton?.addEventListener('click', () => sendRpc({ type: 'abort' }));
 el.newSessionButton.addEventListener('click', () => sendRpc({ type: 'new_session' }));
 el.actionsButton.addEventListener('click', () => openSheet('actions'));
 el.insertCommandButton.addEventListener('click', () => openSheet('commands'));

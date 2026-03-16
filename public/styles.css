@@ -446,12 +446,20 @@ pre {
   flex: 1 1 auto;
 }
 
-.send-button {
+.composer-inline-button {
   flex: 0 0 auto;
-  min-width: 48px;
   min-height: 52px;
-  padding: 0.7rem 0.9rem;
   border-radius: 16px;
+}
+
+.stop-button {
+  min-width: 72px;
+  padding: 0.7rem 0.95rem;
+}
+
+.send-button {
+  min-width: 48px;
+  padding: 0.7rem 0.9rem;
   font-size: 1.35rem;
   line-height: 1;
 }
