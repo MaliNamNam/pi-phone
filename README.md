@@ -16,6 +16,10 @@ A phone-first remote UI for [Pi](https://pi.dev) that lets you drive a real Pi s
 - Optional Tailscale Serve auto-setup for remote access from your phone
 - Single active-client mode for safety and simplicity
 
+## Screenshot
+
+![pi-phone mobile UI screenshot](https://raw.githubusercontent.com/MaliNamNam/pi-phone/master/docs/images/pi-phone-screenshot.png)
+
 ## Requirements
 
 - Pi installed and working
