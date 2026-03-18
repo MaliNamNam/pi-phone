@@ -53,8 +53,6 @@
         <div class="button-row compact">
           <button id="actions-button" class="secondary">Actions</button>
           <button id="refresh-button" class="secondary">Refresh</button>
-          <button id="new-session-button" class="secondary">New session</button>
-          <button id="session-browser-button" class="secondary">Sessions</button>
           <button id="tree-browser-button" class="secondary">Tree</button>
           <button id="abort-button" class="danger">Abort</button>
         </div>
@@ -62,7 +60,6 @@
 
       <section id="banner" class="banner hidden"></section>
       <section id="widget-stack" class="widget-stack hidden"></section>
-      <section id="command-strip" class="command-strip hidden"></section>
 
       <main id="messages" class="messages" aria-live="polite"></main>
 
@@ -70,6 +67,7 @@
         <div class="composer">
           <input id="image-input" type="file" accept="image/*" multiple class="hidden" />
           <div id="attachment-strip" class="attachment-strip hidden"></div>
+          <section id="command-strip" class="command-strip hidden"></section>
           <div class="composer-input-row">
             <textarea
               id="prompt-input"
@@ -86,6 +84,8 @@
           <div class="composer-actions">
             <button id="attach-image-button" class="secondary">Attach</button>
             <button id="insert-command-button" class="secondary">Commands</button>
+            <button id="cd-command-button" class="secondary">/cd</button>
+            <button id="session-browser-button" class="secondary">Sessions</button>
             <button id="steer-button" class="secondary hidden">Steer</button>
           </div>
           <div id="quota-row" class="quota-row hidden" aria-live="polite">

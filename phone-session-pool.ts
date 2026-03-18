@@ -33,6 +33,8 @@ type PendingClientResponse = {
   ws: WebSocket;
   responseCommand?: string;
   responseData?: Record<string, unknown>;
+  onSuccess?: (payload: any) => void;
+  onError?: (payload: any) => void;
 };
 
 type SessionSnapshot = {
@@ -92,6 +94,7 @@ let workerCounter = 0;
 export class PhoneSessionWorker {
   id = `active-session-${++workerCounter}`;
   cwd: string;
+  previousCwd: string | null = null;
   currentSessionFile: string | null;
   child: ChildProcessWithoutNullStreams | null = null;
   lastError = "";
@@ -166,11 +169,19 @@ export class PhoneSessionWorker {
   getStatus() {
     return {
       childRunning: Boolean(this.child),
+      cwd: this.cwd,
+      previousCwd: this.previousCwd,
       isStreaming: this.isStreaming,
       lastError: this.lastError,
       childPid: this.child?.pid ?? null,
       sessionWorkerId: this.id,
     };
+  }
+
+  setTrackedCwd(cwd: string, previousCwd: string | null = this.cwd) {
+    this.previousCwd = previousCwd;
+    this.cwd = cwd;
+    this.options.onStateChange();
   }
 
   getSummary(): SessionSummary {
@@ -407,6 +418,14 @@ export class PhoneSessionWorker {
       const clientMeta = this.pendingClientResponses.get(payload.id);
       if (clientMeta) {
         this.pendingClientResponses.delete(payload.id);
+
+        try {
+          if (payload.success) clientMeta.onSuccess?.(payload);
+          else clientMeta.onError?.(payload);
+        } catch {
+          // Ignore local response side effects and still forward the payload.
+        }
+
         const nextPayload = {
           ...payload,
           ...(clientMeta.responseCommand ? { command: clientMeta.responseCommand } : {}),
@@ -700,6 +719,11 @@ export class PhoneSessionPool {
 
   constructor(options: PhoneSessionPoolOptions) {
     this.options = options;
+  }
+
+  setCwd(cwd: string) {
+    this.options.cwd = cwd;
+    this.broadcastStatus();
   }
 
   get clientCount() {

@@ -197,8 +197,7 @@ pre {
 
 .status-card,
 .banner,
-.widget-stack,
-.command-strip {
+.widget-stack {
   margin-bottom: 1rem;
 }
 
@@ -765,6 +764,10 @@ pre {
   padding-bottom: 0.15rem;
 }
 
+.composer > .command-strip {
+  margin-bottom: 0.7rem;
+}
+
 .attachment-chip {
   min-width: 152px;
   max-width: 220px;
@@ -908,6 +911,22 @@ pre {
 .model-list button {
   width: 100%;
   text-align: left;
+}
+
+.sheet-filter {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.sheet-select {
+  width: 100%;
+  appearance: none;
+  background: rgba(7, 12, 16, 0.95);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.8rem 0.95rem;
 }
 
 .sheet-card {

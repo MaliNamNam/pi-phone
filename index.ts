@@ -5,12 +5,13 @@ import type {
   SessionEntry,
 } from "@mariozechner/pi-coding-agent";
 import { SessionManager } from "@mariozechner/pi-coding-agent";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, extname, join, normalize, resolve } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { basename, dirname, extname, join, normalize, resolve } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, type RawData, type WebSocket } from "ws";
@@ -113,6 +114,257 @@ const codexUsageUrl = "https://chatgpt.com/backend-api/wham/usage";
 const sparkModelId = "gpt-5.3-codex-spark";
 const sparkLimitName = "GPT-5.3-Codex-Spark";
 const missingAuthErrorPrefix = "Missing openai-codex OAuth access/accountId";
+const PATH_SUGGESTION_LIMIT = 20;
+const PATH_SUGGESTION_MAX_RESULTS = 100;
+
+type PhonePathSuggestionMode = "mention" | "cd";
+
+type PhonePathSuggestion = {
+  value: string;
+  label: string;
+  description?: string;
+  isDirectory: boolean;
+  kind: "path" | "previous";
+};
+
+function resolveFdBinaryPath(): string | null {
+  const bundledFd = join(agentDir, "bin", "fd");
+  if (existsSync(bundledFd)) return bundledFd;
+
+  for (const candidate of ["fd", "fdfind"]) {
+    const result = spawnSync(candidate, ["--version"], { stdio: "ignore" });
+    if (!result.error && result.status === 0) return candidate;
+  }
+
+  return null;
+}
+
+const fdBinaryPath = resolveFdBinaryPath();
+
+function stripWrappingQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+    || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function expandHomePath(value: string): string {
+  if (value === "~") return homedir();
+  if (value.startsWith("~/")) return join(homedir(), value.slice(2));
+  return value;
+}
+
+function resolvePhoneCdTargetPath(rawArgs: string | undefined, currentCwd: string, previousCwd?: string | null): string {
+  const input = stripWrappingQuotes(rawArgs ?? "").trim();
+
+  if (!input) return homedir();
+  if (input === "-") {
+    if (!previousCwd) {
+      throw new Error("No previous directory available yet.");
+    }
+    return previousCwd;
+  }
+
+  const expanded = expandHomePath(input);
+  return resolve(currentCwd, expanded);
+}
+
+function createCdPathSuggestions(prefix: string, currentCwd: string, previousCwd?: string | null): PhonePathSuggestion[] {
+  const raw = prefix ?? "";
+  const trimmed = raw.trimStart();
+  const suggestions: PhonePathSuggestion[] = [];
+
+  if ("-".startsWith(trimmed)) {
+    suggestions.push({
+      value: "-",
+      label: "-",
+      description: previousCwd || "Previous directory",
+      isDirectory: true,
+      kind: "previous",
+    });
+  }
+
+  const expanded = expandHomePath(trimmed);
+  const endsWithSeparator = /[\\/]$/.test(expanded);
+  const resolvedInput = expanded
+    ? resolve(currentCwd, expanded)
+    : currentCwd;
+
+  const baseDir = expanded
+    ? endsWithSeparator
+      ? resolvedInput
+      : dirname(resolvedInput)
+    : currentCwd;
+
+  const partial = expanded && !endsWithSeparator ? basename(expanded) : "";
+  const valuePrefix = trimmed
+    ? endsWithSeparator
+      ? trimmed
+      : trimmed.slice(0, Math.max(0, trimmed.length - partial.length))
+    : "";
+
+  try {
+    if (!existsSync(baseDir) || !statSync(baseDir).isDirectory()) {
+      return suggestions.slice(0, PATH_SUGGESTION_LIMIT);
+    }
+
+    const dirs = readdirSync(baseDir, { withFileTypes: true })
+      .filter((entry) => {
+        if (entry.isDirectory()) return true;
+        if (!entry.isSymbolicLink()) return false;
+        try {
+          return statSync(join(baseDir, entry.name)).isDirectory();
+        } catch {
+          return false;
+        }
+      })
+      .filter((entry) => !partial || entry.name.startsWith(partial))
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    for (const entry of dirs.slice(0, PATH_SUGGESTION_LIMIT)) {
+      suggestions.push({
+        value: `${valuePrefix}${entry.name}/`,
+        label: `${entry.name}/`,
+        description: join(baseDir, entry.name),
+        isDirectory: true,
+        kind: "path",
+      });
+    }
+  } catch {
+    return suggestions.slice(0, PATH_SUGGESTION_LIMIT);
+  }
+
+  return suggestions.slice(0, PATH_SUGGESTION_LIMIT);
+}
+
+function resolveScopedMentionQuery(rawQuery: string, currentCwd: string): { baseDir: string; query: string; displayBase: string } | null {
+  const slashIndex = rawQuery.lastIndexOf("/");
+  if (slashIndex === -1) return null;
+
+  const displayBase = rawQuery.slice(0, slashIndex + 1);
+  const query = rawQuery.slice(slashIndex + 1);
+  const baseDir = displayBase.startsWith("~/")
+    ? expandHomePath(displayBase)
+    : displayBase.startsWith("/")
+      ? displayBase
+      : join(currentCwd, displayBase);
+
+  try {
+    if (!statSync(baseDir).isDirectory()) return null;
+  } catch {
+    return null;
+  }
+
+  return { baseDir, query, displayBase };
+}
+
+function scopedPathForDisplay(displayBase: string, relativePath: string): string {
+  if (displayBase === "/") return `/${relativePath}`;
+  return `${displayBase}${relativePath}`;
+}
+
+function scorePhonePathEntry(filePath: string, query: string, isDirectory: boolean): number {
+  if (!query) return isDirectory ? 2 : 1;
+
+  const fileName = basename(filePath).toLowerCase();
+  const normalizedQuery = query.toLowerCase();
+  let score = 0;
+
+  if (fileName === normalizedQuery) score = 100;
+  else if (fileName.startsWith(normalizedQuery)) score = 80;
+  else if (fileName.includes(normalizedQuery)) score = 50;
+  else if (filePath.toLowerCase().includes(normalizedQuery)) score = 30;
+
+  if (isDirectory && score > 0) score += 10;
+  return score;
+}
+
+function walkDirectoryWithFd(baseDir: string, query: string, maxResults = PATH_SUGGESTION_MAX_RESULTS) {
+  if (!fdBinaryPath) return [] as Array<{ path: string; isDirectory: boolean }>;
+
+  const args = [
+    "--base-directory",
+    baseDir,
+    "--max-results",
+    String(maxResults),
+    "--type",
+    "f",
+    "--type",
+    "d",
+    "--full-path",
+    "--hidden",
+    "--exclude",
+    ".git",
+    "--exclude",
+    ".git/*",
+    "--exclude",
+    ".git/**",
+  ];
+
+  if (query) args.push(query);
+
+  const result = spawnSync(fdBinaryPath, args, {
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+    maxBuffer: 10 * 1024 * 1024,
+  });
+
+  if (result.status !== 0 || !result.stdout) return [];
+
+  return result.stdout
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => ({
+      path: line.endsWith("/") ? line.slice(0, -1) : line,
+      isDirectory: line.endsWith("/"),
+    }))
+    .filter((entry) => entry.path !== ".git" && !entry.path.startsWith(".git/") && !entry.path.includes("/.git/"));
+}
+
+function createMentionPathSuggestions(query: string, currentCwd: string): PhonePathSuggestion[] {
+  const scopedQuery = resolveScopedMentionQuery(query, currentCwd);
+  const fdBaseDir = scopedQuery?.baseDir ?? currentCwd;
+  const fdQuery = scopedQuery?.query ?? query;
+  const entries = walkDirectoryWithFd(fdBaseDir, fdQuery, PATH_SUGGESTION_MAX_RESULTS);
+
+  return entries
+    .map((entry) => ({
+      ...entry,
+      score: scorePhonePathEntry(entry.path, fdQuery, entry.isDirectory),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, PATH_SUGGESTION_LIMIT)
+    .map((entry) => {
+      const displayPath = scopedQuery
+        ? scopedPathForDisplay(scopedQuery.displayBase, entry.path)
+        : entry.path;
+      const completionPath = entry.isDirectory ? `${displayPath}/` : displayPath;
+      return {
+        value: completionPath,
+        label: `${basename(entry.path)}${entry.isDirectory ? "/" : ""}`,
+        description: displayPath,
+        isDirectory: entry.isDirectory,
+        kind: "path",
+      };
+    });
+}
+
+function listPhonePathSuggestions(
+  mode: PhonePathSuggestionMode,
+  query: string,
+  currentCwd: string,
+  previousCwd?: string | null,
+): PhonePathSuggestion[] {
+  return mode === "cd"
+    ? createCdPathSuggestions(query, currentCwd, previousCwd)
+    : createMentionPathSuggestions(query, currentCwd);
+}
 
 function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, value));
@@ -1031,8 +1283,8 @@ export default function (pi: ExtensionAPI) {
     return out;
   }
 
-  async function listSessionsForCurrentCwd() {
-    const sessions = await SessionManager.list(config.cwd);
+  async function listSessionsForCwd(cwd: string) {
+    const sessions = await SessionManager.list(cwd);
     return sessions.map((session) => ({
       path: session.path,
       id: session.id,
@@ -1148,6 +1400,77 @@ export default function (pi: ExtensionAPI) {
       ...parsed,
       source: typeof match.source === "string" ? match.source : "extension",
     };
+  }
+
+  async function dispatchRemoteSlashCommandForWorker(
+    worker: PhoneSessionWorker,
+    ws: WebSocket,
+    input: {
+      text: string;
+      images?: unknown[];
+      streamingBehavior?: "steer" | "followUp";
+    },
+    options: {
+      responseCommand?: string;
+      responseData?: Record<string, unknown>;
+      onSuccess?: () => void;
+      onError?: () => void;
+    } = {},
+  ) {
+    const slashCommand = await resolveRemoteSlashCommandForWorker(worker, input.text);
+    if (!slashCommand) {
+      send(ws, {
+        channel: "rpc",
+        payload: {
+          type: "response",
+          command: options.responseCommand || "slash_command",
+          success: false,
+          error: `Unknown slash command: ${typeof input.text === "string" ? input.text : ""}`.trim() || "Unknown slash command.",
+        },
+      });
+      return false;
+    }
+
+    const images = Array.isArray(input.images) ? input.images : [];
+    if (slashCommand.source === "extension" && images.length > 0) {
+      send(ws, {
+        channel: "rpc",
+        payload: {
+          type: "response",
+          command: options.responseCommand || "slash_command",
+          success: false,
+          error: "Extension slash commands do not support image attachments.",
+        },
+      });
+      return false;
+    }
+
+    const childCommand: Record<string, unknown> = {
+      type: "prompt",
+      message: slashCommand.text,
+    };
+
+    if (images.length > 0) {
+      childCommand.images = images;
+    }
+
+    if (slashCommand.source !== "extension" && (input.streamingBehavior === "steer" || input.streamingBehavior === "followUp")) {
+      childCommand.streamingBehavior = input.streamingBehavior;
+    }
+
+    await worker.sendClientCommand(childCommand, {
+      ws,
+      responseCommand: options.responseCommand || "slash_command",
+      responseData: {
+        name: slashCommand.name,
+        source: slashCommand.source,
+        ...(options.responseData || {}),
+      },
+      onSuccess: options.onSuccess,
+      onError: options.onError,
+    });
+
+    return true;
   }
 
   function send(ws: WebSocket, payload: unknown) {
@@ -1802,59 +2125,91 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
+      if (message.command && typeof message.command === "object" && message.command.type === "path-suggestions") {
+        try {
+          const mode = message.command.mode === "cd" ? "cd" : "mention";
+          const query = typeof message.command.query === "string" ? message.command.query : "";
+          const suggestions = listPhonePathSuggestions(mode, query, worker.cwd, worker.previousCwd);
+
+          send(ws, {
+            channel: "rpc",
+            payload: {
+              type: "response",
+              command: "path_suggestions",
+              success: true,
+              data: {
+                mode,
+                query,
+                cwd: worker.cwd,
+                requestId: Number(message.command.requestId) || 0,
+                suggestions,
+              },
+            },
+          });
+        } catch (error) {
+          send(ws, {
+            channel: "rpc",
+            payload: {
+              type: "response",
+              command: "path_suggestions",
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
+        return;
+      }
+
+      if (message.command && typeof message.command === "object" && message.command.type === "cd") {
+        try {
+          const args = typeof message.command.args === "string" ? message.command.args : "";
+          const nextCwd = resolvePhoneCdTargetPath(args, worker.cwd, worker.previousCwd);
+
+          if (!existsSync(nextCwd)) {
+            throw new Error(`Directory does not exist: ${nextCwd}`);
+          }
+          if (!statSync(nextCwd).isDirectory()) {
+            throw new Error(`Not a directory: ${nextCwd}`);
+          }
+
+          const previousCwd = worker.cwd;
+          const slashText = args.trim() ? `/cd ${args}` : "/cd";
+          const dispatched = await dispatchRemoteSlashCommandForWorker(
+            worker,
+            ws,
+            { text: slashText },
+            {
+              responseCommand: "cd",
+              responseData: { cwd: nextCwd, previousCwd },
+              onSuccess: () => {
+                worker.setTrackedCwd(nextCwd, previousCwd);
+                sessionPool?.setCwd(nextCwd);
+                config.cwd = nextCwd;
+              },
+            },
+          );
+
+          if (!dispatched) return;
+        } catch (error) {
+          send(ws, {
+            channel: "rpc",
+            payload: {
+              type: "response",
+              command: "cd",
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
+        return;
+      }
+
       if (message.command && typeof message.command === "object" && message.command.type === "slash-command") {
         try {
-          const slashCommand = await resolveRemoteSlashCommandForWorker(worker, message.command.text);
-          if (!slashCommand) {
-            send(ws, {
-              channel: "rpc",
-              payload: {
-                type: "response",
-                command: "slash_command",
-                success: false,
-                error: `Unknown slash command: ${typeof message.command.text === "string" ? message.command.text : ""}`.trim() || "Unknown slash command.",
-              },
-            });
-            return;
-          }
-
-          const images = Array.isArray(message.command.images) ? message.command.images : [];
-          if (slashCommand.source === "extension" && images.length > 0) {
-            send(ws, {
-              channel: "rpc",
-              payload: {
-                type: "response",
-                command: "slash_command",
-                success: false,
-                error: "Extension slash commands do not support image attachments.",
-              },
-            });
-            return;
-          }
-
-          const childCommand: Record<string, unknown> = {
-            type: "prompt",
-            message: slashCommand.text,
-          };
-
-          if (images.length > 0) {
-            childCommand.images = images;
-          }
-
-          if (
-            slashCommand.source !== "extension" &&
-            (message.command.streamingBehavior === "steer" || message.command.streamingBehavior === "followUp")
-          ) {
-            childCommand.streamingBehavior = message.command.streamingBehavior;
-          }
-
-          await worker.sendClientCommand(childCommand, {
-            ws,
-            responseCommand: "slash_command",
-            responseData: {
-              name: slashCommand.name,
-              source: slashCommand.source,
-            },
+          await dispatchRemoteSlashCommandForWorker(worker, ws, {
+            text: String(message.command.text || ""),
+            images: Array.isArray(message.command.images) ? message.command.images : [],
+            streamingBehavior: message.command.streamingBehavior === "steer" ? "steer" : message.command.streamingBehavior === "followUp" ? "followUp" : undefined,
           });
         } catch (error) {
           send(ws, {
@@ -1882,14 +2237,15 @@ export default function (pi: ExtensionAPI) {
     const command = { ...message.command };
 
     if (command.type === "phone_list_sessions") {
-      const sessions = await listSessionsForCurrentCwd();
+      const worker = await getActiveWorkerForClient(ws);
+      const sessions = await listSessionsForCwd(worker.cwd || config.cwd);
       send(ws, {
         channel: "rpc",
         payload: {
           type: "response",
           command: "phone_list_sessions",
           success: true,
-          data: { sessions, cwd: config.cwd },
+          data: { sessions, cwd: worker.cwd || config.cwd },
           ...(command.id ? { id: command.id } : {}),
         },
       });

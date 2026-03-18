@@ -1,4 +1,4 @@
-const CACHE = 'pi-phone-v12';
+const CACHE = 'pi-phone-v13';
 const ASSETS = ['/', '/styles.css', '/app.js', '/manifest.webmanifest', '/icon.svg'];
 const APP_SHELL = new Set(ASSETS);
 

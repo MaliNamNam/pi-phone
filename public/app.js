@@ -1,5 +1,5 @@
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
-const LOCAL_COMMAND_NAMES = new Set(['new', 'compact', 'reload', 'refresh', 'stats', 'cost', 'model', 'thinking', 'commands', 'sessions', 'tree']);
+const LOCAL_COMMAND_NAMES = new Set(['new', 'compact', 'reload', 'refresh', 'stats', 'cost', 'model', 'thinking', 'commands', 'sessions', 'tree', 'cd']);
 
 const LOCAL_COMMANDS = [
   { name: 'new', description: 'Start a new session', run: () => sendRpc({ type: 'new_session' }) },
@@ -12,8 +12,11 @@ const LOCAL_COMMANDS = [
   { name: 'commands', description: 'Browse commands, skills, and prompts', run: () => openSheet('commands') },
   { name: 'sessions', description: 'Browse saved sessions', run: () => openSheet('sessions') },
   { name: 'tree', description: 'Browse the current session tree', run: () => openSheet('tree') },
+  { name: 'cd', description: 'Change Pi working directory', insertOnly: true, run: () => insertCdCommand() },
   { name: 'refresh', description: 'Refresh snapshot', run: () => refreshAll() },
 ];
+const COMMAND_CATEGORY_ORDER = ['local', 'extension', 'prompt', 'skill'];
+const AUTOCOMPLETE_DELIMITERS = new Set([' ', '\t', '\n', '"', "'", '=']);
 
 const TOKEN_STORAGE_KEY = 'pi-phone-token';
 
@@ -42,6 +45,11 @@ const state = {
   manuallyClosed: false,
   token: localStorage.getItem(TOKEN_STORAGE_KEY) || '',
   sheetMode: 'actions',
+  commandSheetCategory: 'local',
+  autocompleteContext: null,
+  autocompleteItems: [],
+  autocompleteRemoteRequestId: 0,
+  autocompleteRemoteTimer: null,
   attachments: [],
   lastSheetPointerAction: '',
   lastSheetPointerActionAt: 0,
@@ -52,6 +60,7 @@ const el = {
   abortButton: document.querySelector('#abort-button'),
   actionsButton: document.querySelector('#actions-button'),
   attachImageButton: document.querySelector('#attach-image-button'),
+  cdCommandButton: document.querySelector('#cd-command-button'),
   attachmentStrip: document.querySelector('#attachment-strip'),
   banner: document.querySelector('#banner'),
   commandStrip: document.querySelector('#command-strip'),
@@ -63,7 +72,6 @@ const el = {
   loginModal: document.querySelector('#login-modal'),
   messages: document.querySelector('#messages'),
   modelValue: document.querySelector('#model-value'),
-  newSessionButton: document.querySelector('#new-session-button'),
   promptInput: document.querySelector('#prompt-input'),
   quotaCwd: document.querySelector('#quota-cwd'),
   quotaPrimary: document.querySelector('#quota-primary'),
@@ -1536,55 +1544,313 @@ function clearSnapshotView() {
   clearTransientState();
 }
 
+function compareCommandNames(left, right) {
+  return String(left?.name || '').localeCompare(String(right?.name || ''));
+}
+
+function sortCommandCategories(categories = []) {
+  return [...categories].sort((left, right) => {
+    const leftIndex = COMMAND_CATEGORY_ORDER.indexOf(left);
+    const rightIndex = COMMAND_CATEGORY_ORDER.indexOf(right);
+    const normalizedLeftIndex = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+    const normalizedRightIndex = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+
+    if (normalizedLeftIndex !== normalizedRightIndex) return normalizedLeftIndex - normalizedRightIndex;
+    return String(left || '').localeCompare(String(right || ''));
+  });
+}
+
+function localCommandCatalog() {
+  return LOCAL_COMMANDS.map((command) => ({
+    name: command.name,
+    description: command.description,
+    source: 'local',
+    insertOnly: Boolean(command.insertOnly),
+  }));
+}
+
+function visibleCommandCatalog() {
+  const localCommands = localCommandCatalog();
+  const localNames = new Set(localCommands.map((command) => command.name));
+  return [
+    ...localCommands,
+    ...state.commands.filter((command) => !localNames.has(command.name)),
+  ];
+}
+
+function findLocalCommandDefinition(name) {
+  return LOCAL_COMMANDS.find((command) => command.name === name) || null;
+}
+
 function groupedCommands() {
   const groups = new Map();
-  const merged = [
-    ...LOCAL_COMMANDS.map((command) => ({ name: command.name, description: command.description, source: 'local' })),
-    ...state.commands,
-  ];
+  const merged = visibleCommandCatalog();
+
   for (const command of merged) {
     const key = command.source || 'command';
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(command);
   }
-  return [...groups.entries()];
+
+  for (const commands of groups.values()) {
+    commands.sort(compareCommandNames);
+  }
+
+  return new Map(sortCommandCategories([...groups.keys()]).map((category) => [category, groups.get(category) || []]));
+}
+
+function commandCategoryLabel(category = '') {
+  if (!category) return 'Commands';
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+function selectedCommandCategory(categories = []) {
+  if (!categories.length) {
+    state.commandSheetCategory = '';
+    return '';
+  }
+
+  if (categories.includes(state.commandSheetCategory)) {
+    return state.commandSheetCategory;
+  }
+
+  state.commandSheetCategory = categories[0];
+  return state.commandSheetCategory;
+}
+
+function activeAutocompleteContext() {
+  const value = el.promptInput.value || '';
+  const cursor = el.promptInput.selectionStart ?? value.length;
+
+  const mention = detectMentionAutocompleteContext(value, cursor);
+  if (mention) return mention;
+
+  const cd = detectCdAutocompleteContext(value, cursor);
+  if (cd) return cd;
+
+  const slash = detectSlashCommandAutocompleteContext(value, cursor);
+  if (slash) return slash;
+
+  return null;
+}
+
+function clearAutocompleteSuggestions() {
+  if (state.autocompleteRemoteTimer) {
+    clearTimeout(state.autocompleteRemoteTimer);
+    state.autocompleteRemoteTimer = null;
+  }
+  state.autocompleteContext = null;
+  state.autocompleteItems = [];
+  el.commandStrip.classList.add('hidden');
+  el.commandStrip.innerHTML = '';
+}
+
+function renderAutocompleteItems(items = []) {
+  state.autocompleteItems = items;
+
+  if (!items.length) {
+    el.commandStrip.classList.add('hidden');
+    el.commandStrip.innerHTML = '';
+    return;
+  }
+
+  el.commandStrip.innerHTML = items.map((item, index) => `
+    <button class="command-chip secondary" data-autocomplete-index="${index}" title="${escapeAttribute(item.title || item.description || item.label || '')}">
+      <span>${escapeHtml(item.label || '')}</span>
+      <span class="source">${escapeHtml(item.badge || '')}</span>
+    </button>
+  `).join('');
+  el.commandStrip.classList.remove('hidden');
+}
+
+function requestPathSuggestions(context) {
+  if (state.socket?.readyState !== WebSocket.OPEN) {
+    renderAutocompleteItems([]);
+    return;
+  }
+
+  const requestId = ++state.autocompleteRemoteRequestId;
+  sendLocalCommand({
+    type: 'path-suggestions',
+    mode: context.mode,
+    query: context.query,
+    requestId,
+  });
+}
+
+function queuePathSuggestions(context) {
+  if (state.autocompleteRemoteTimer) {
+    clearTimeout(state.autocompleteRemoteTimer);
+  }
+
+  state.autocompleteRemoteTimer = setTimeout(() => {
+    state.autocompleteRemoteTimer = null;
+    requestPathSuggestions(context);
+  }, 90);
 }
 
 function renderCommandSuggestions() {
-  const value = el.promptInput.value.trimStart();
-  if (!value.startsWith('/')) {
-    el.commandStrip.classList.add('hidden');
-    el.commandStrip.innerHTML = '';
+  const context = activeAutocompleteContext();
+  state.autocompleteContext = context;
+
+  if (!context) {
+    clearAutocompleteSuggestions();
     return;
   }
 
-  const query = value.slice(1).toLowerCase();
-  const merged = [
-    ...LOCAL_COMMANDS.map((command) => ({ name: command.name, source: 'local' })),
-    ...state.commands,
-  ];
-  const matches = merged.filter((command) => command.name.toLowerCase().startsWith(query)).slice(0, 10);
+  if (context.type === 'slash-command') {
+    const matches = visibleCommandCatalog()
+      .filter((command) => command.name.toLowerCase().startsWith(context.query.toLowerCase()))
+      .slice(0, 10)
+      .map((command) => ({
+        kind: command.source === 'local' ? (command.insertOnly ? 'local-command-insert' : 'local-command-run') : 'remote-command-insert',
+        label: `/${command.name}`,
+        badge: command.source || 'command',
+        description: command.description || '',
+        name: command.name,
+      }));
 
-  if (!matches.length) {
-    el.commandStrip.classList.add('hidden');
-    el.commandStrip.innerHTML = '';
+    renderAutocompleteItems(matches);
     return;
   }
 
-  el.commandStrip.innerHTML = matches
-    .map((command) => `
-      <button
-        class="command-chip secondary"
-        ${command.source === 'local'
-          ? `data-local-command="${escapeHtml(command.name)}"`
-          : `data-command="/${escapeHtml(command.name)}"`}
-      >
-        <span>${escapeHtml(`/${command.name}`)}</span>
-        <span class="source">${escapeHtml(command.source || 'command')}</span>
-      </button>
-    `)
-    .join('');
-  el.commandStrip.classList.remove('hidden');
+  renderAutocompleteItems([]);
+  queuePathSuggestions(context);
+}
+
+function delimiterBeforeIndex(text, index) {
+  return index <= 0 || AUTOCOMPLETE_DELIMITERS.has(text[index - 1]);
+}
+
+function findTokenBounds(text, start, end) {
+  let tokenStart = start;
+  let tokenEnd = end;
+
+  while (tokenStart > 0 && !AUTOCOMPLETE_DELIMITERS.has(text[tokenStart - 1])) {
+    tokenStart -= 1;
+  }
+  while (tokenEnd < text.length && !AUTOCOMPLETE_DELIMITERS.has(text[tokenEnd])) {
+    tokenEnd += 1;
+  }
+
+  return { start: tokenStart, end: tokenEnd };
+}
+
+function detectMentionAutocompleteContext(text, cursor) {
+  const scanLimit = Math.min(cursor, text.length);
+  let tokenStart = scanLimit;
+  while (tokenStart > 0 && !AUTOCOMPLETE_DELIMITERS.has(text[tokenStart - 1])) {
+    tokenStart -= 1;
+  }
+
+  if (text[tokenStart] !== '@') return null;
+  if (!delimiterBeforeIndex(text, tokenStart)) return null;
+
+  const bounds = findTokenBounds(text, tokenStart, cursor);
+  return {
+    type: 'path',
+    mode: 'mention',
+    query: text.slice(tokenStart + 1, cursor),
+    replaceStart: bounds.start,
+    replaceEnd: bounds.end,
+  };
+}
+
+function detectCdAutocompleteContext(text, cursor) {
+  const leadingWhitespace = text.match(/^\s*/)?.[0] || '';
+  const trimmed = text.slice(leadingWhitespace.length);
+  if (!trimmed.startsWith('/cd')) return null;
+
+  const afterCommand = trimmed.slice(3);
+  if (afterCommand && !/^\s/.test(afterCommand)) return null;
+
+  const commandStart = leadingWhitespace.length;
+  const argsStart = commandStart + 3 + (afterCommand.match(/^\s*/) || [''])[0].length;
+  if (cursor < argsStart) return null;
+
+  return {
+    type: 'path',
+    mode: 'cd',
+    query: text.slice(argsStart, cursor),
+    replaceStart: argsStart,
+    replaceEnd: text.length,
+  };
+}
+
+function detectSlashCommandAutocompleteContext(text, cursor) {
+  const leadingWhitespace = text.match(/^\s*/)?.[0] || '';
+  const trimmedBeforeCursor = text.slice(leadingWhitespace.length, cursor);
+  if (!trimmedBeforeCursor.startsWith('/')) return null;
+  if (/\s/.test(trimmedBeforeCursor.slice(1))) return null;
+
+  return {
+    type: 'slash-command',
+    query: trimmedBeforeCursor.slice(1),
+  };
+}
+
+function replacePromptRange(start, end, nextText) {
+  const value = el.promptInput.value;
+  el.promptInput.value = `${value.slice(0, start)}${nextText}${value.slice(end)}`;
+  const nextCursor = start + nextText.length;
+  el.promptInput.focus();
+  el.promptInput.setSelectionRange(nextCursor, nextCursor);
+  autoResizeTextarea();
+  renderCommandSuggestions();
+}
+
+function insertTextAtCursor(text) {
+  const start = el.promptInput.selectionStart ?? el.promptInput.value.length;
+  const end = el.promptInput.selectionEnd ?? start;
+  replacePromptRange(start, end, text);
+}
+
+function insertCdCommand() {
+  const value = el.promptInput.value;
+  if (!value.trim()) {
+    el.promptInput.value = '/cd ';
+    el.promptInput.focus();
+    el.promptInput.setSelectionRange(4, 4);
+    autoResizeTextarea();
+    renderCommandSuggestions();
+    return;
+  }
+
+  insertTextAtCursor('/cd ');
+}
+
+function applyAutocompleteItem(item) {
+  const context = state.autocompleteContext;
+  if (!item) return;
+
+  if (item.kind === 'local-command-run') {
+    const result = tryHandleLocalCommand(`/${item.name}`, { hasAttachments: state.attachments.length > 0 });
+    if (result === 'handled') {
+      el.promptInput.value = '';
+      autoResizeTextarea();
+      renderCommandSuggestions();
+    }
+    return;
+  }
+
+  if (item.kind === 'local-command-insert' || item.kind === 'remote-command-insert') {
+    el.promptInput.value = `/${item.name} `;
+    autoResizeTextarea();
+    renderCommandSuggestions();
+    el.promptInput.focus();
+    return;
+  }
+
+  if (!context || context.type !== 'path') return;
+
+  if (context.mode === 'mention') {
+    const suffix = item.isDirectory ? '' : ' ';
+    replacePromptRange(context.replaceStart, context.replaceEnd, `@${item.value}${suffix}`);
+    return;
+  }
+
+  const suffix = item.isDirectory ? '' : ' ';
+  replacePromptRange(context.replaceStart, context.replaceEnd, `${item.value}${suffix}`);
 }
 
 function renderAttachmentStrip() {
@@ -1705,6 +1971,19 @@ function requestReload() {
   }
 
   return sendLocalCommand('reload');
+}
+
+function sendCdCommand(args = '') {
+  return sendLocalCommand({ type: 'cd', args });
+}
+
+function parseLocalCommandInput(text) {
+  const match = String(text || '').match(/^\/(\S+)(?:\s+([\s\S]*))?$/);
+  if (!match) return null;
+  return {
+    name: match[1] || '',
+    args: match[2] || '',
+  };
 }
 
 function parseSlashCommandText(text) {
@@ -1852,27 +2131,35 @@ function renderModelsSheet() {
 
 function renderCommandsSheet() {
   const groups = groupedCommands();
+  const categories = sortCommandCategories([...new Set([...COMMAND_CATEGORY_ORDER, ...groups.keys()])]);
+  const activeCategory = selectedCommandCategory(categories);
+  const commands = groups.get(activeCategory) || [];
+  const emptyLabel = activeCategory ? `${commandCategoryLabel(activeCategory).toLowerCase()} commands` : 'commands';
+
   return `
     <section class="sheet-section">
       <h3>Commands, skills, prompts</h3>
-      ${groups.length ? groups.map(([group, commands]) => `
-        <section class="sheet-section">
-          <h3>${escapeHtml(group)}</h3>
-          <div class="sheet-list">
-            ${commands.map((command) => `
-              <button
-                class="secondary"
-                ${command.source === 'local'
-                  ? `data-run-local-command="${escapeHtml(command.name)}"`
-                  : `data-run-command="/${escapeHtml(command.name)}"`}
-              >
-                <div><strong>${escapeHtml(`/${command.name}`)}</strong></div>
-                <div class="label">${escapeHtml(command.description || 'No description')}</div>
-              </button>
-            `).join('')}
-          </div>
-        </section>
-      `).join('') : '<div class="label">No commands reported by Pi.</div>'}
+      <label class="sheet-filter">
+        <span class="label">Category</span>
+        <select class="sheet-select" data-command-category-select aria-label="Command category">
+          ${categories.map((category) => `
+            <option value="${escapeHtml(category)}" ${category === activeCategory ? 'selected' : ''}>${escapeHtml(commandCategoryLabel(category))}</option>
+          `).join('')}
+        </select>
+      </label>
+      <div class="sheet-list">
+        ${commands.length ? commands.map((command) => `
+          <button
+            class="secondary"
+            ${command.source === 'local'
+              ? `data-run-local-command="${escapeHtml(command.name)}"`
+              : `data-run-command="/${escapeHtml(command.name)}"`}
+          >
+            <div><strong>${escapeHtml(`/${command.name}`)}</strong></div>
+            <div class="label">${escapeHtml(command.description || 'No description')}</div>
+          </button>
+        `).join('') : `<div class="label">No ${escapeHtml(emptyLabel)} available.</div>`}
+      </div>
     </section>
   `;
 }
@@ -2019,6 +2306,10 @@ function handleRpcPayload(payload) {
 
   if (payload.type === 'response') {
     if (!payload.success) {
+      if (payload.command === 'path_suggestions') {
+        renderAutocompleteItems([]);
+        return;
+      }
       showToast(payload.error || `Command failed: ${payload.command}`, 'error');
       return;
     }
@@ -2041,6 +2332,34 @@ function handleRpcPayload(payload) {
       state.commands = payload.data?.commands || [];
       renderCommandSuggestions();
       renderSheet();
+      return;
+    }
+
+    if (payload.command === 'path_suggestions') {
+      const context = state.autocompleteContext;
+      if (!context || context.type !== 'path') return;
+      if (Number(payload.data?.requestId) !== state.autocompleteRemoteRequestId) return;
+      if (payload.data?.mode !== context.mode) return;
+      if ((payload.data?.query || '') !== context.query) return;
+
+      const suggestions = Array.isArray(payload.data?.suggestions) ? payload.data.suggestions : [];
+      renderAutocompleteItems(suggestions.map((suggestion) => ({
+        kind: 'path',
+        label: context.mode === 'mention'
+          ? `@${suggestion.value}`
+          : suggestion.value,
+        badge: suggestion.kind === 'previous' ? 'recent' : suggestion.isDirectory ? 'dir' : 'file',
+        description: suggestion.description || suggestion.value,
+        value: suggestion.value,
+        isDirectory: Boolean(suggestion.isDirectory),
+        title: suggestion.description || suggestion.value,
+      })));
+      return;
+    }
+
+    if (payload.command === 'cd') {
+      showToast(`Changed directory to ${payload.data?.cwd || 'the selected path'}.`);
+      refreshAll();
       return;
     }
 
@@ -2426,9 +2745,9 @@ async function boot() {
 
 function tryHandleLocalCommand(text, { hasAttachments = false } = {}) {
   if (!text.startsWith('/')) return false;
-  const [name, ...rest] = text.slice(1).trim().split(/\s+/);
-  const args = rest.join(' ').trim();
-  if (!name) return false;
+  const parsed = parseLocalCommandInput(text);
+  if (!parsed?.name) return false;
+  const { name, args } = parsed;
 
   if (hasAttachments && LOCAL_COMMAND_NAMES.has(name)) {
     showToast('Local phone commands do not support image attachments.', 'error');
@@ -2466,6 +2785,9 @@ function tryHandleLocalCommand(text, { hasAttachments = false } = {}) {
   if (name === 'tree') {
     openSheet('tree');
     return 'handled';
+  }
+  if (name === 'cd') {
+    return sendCdCommand(args) ? 'handled' : 'blocked';
   }
   if (name === 'thinking') {
     if (args && THINKING_LEVELS.includes(args)) {
@@ -2601,6 +2923,19 @@ function handleSheetButtonAction(button) {
 
   const runLocalCommand = button.getAttribute('data-run-local-command');
   if (runLocalCommand) {
+    const definition = findLocalCommandDefinition(runLocalCommand);
+    if (definition?.insertOnly) {
+      if (runLocalCommand === 'cd') insertCdCommand();
+      else {
+        el.promptInput.value = `/${runLocalCommand} `;
+        autoResizeTextarea();
+        renderCommandSuggestions();
+        el.promptInput.focus();
+      }
+      closeSheet();
+      return true;
+    }
+
     const result = tryHandleLocalCommand(`/${runLocalCommand}`, { hasAttachments: state.attachments.length > 0 });
     if (result === 'handled') {
       el.promptInput.value = '';
@@ -2648,6 +2983,16 @@ el.promptInput.addEventListener('input', () => {
   renderCommandSuggestions();
 });
 
+el.promptInput.addEventListener('click', () => {
+  renderCommandSuggestions();
+});
+
+el.promptInput.addEventListener('keyup', (event) => {
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'Home' || event.key === 'End') {
+    renderCommandSuggestions();
+  }
+});
+
 autoResizeTextarea();
 renderCommandSuggestions();
 renderAttachmentStrip();
@@ -2655,9 +3000,9 @@ renderAttachmentStrip();
 el.refreshButton.addEventListener('click', refreshAll);
 el.abortButton.addEventListener('click', () => sendRpc({ type: 'abort' }));
 el.stopButton?.addEventListener('click', () => sendRpc({ type: 'abort' }));
-el.newSessionButton.addEventListener('click', () => sendRpc({ type: 'new_session' }));
 el.actionsButton.addEventListener('click', () => openSheet('actions'));
 el.insertCommandButton.addEventListener('click', () => openSheet('commands'));
+el.cdCommandButton?.addEventListener('click', insertCdCommand);
 el.sessionBrowserButton.addEventListener('click', () => openSheet('sessions'));
 el.sessionSidebarButton.addEventListener('click', () => openSheet('active-sessions'));
 el.treeBrowserButton.addEventListener('click', () => openSheet('tree'));
@@ -2684,26 +3029,19 @@ el.promptInput.addEventListener('keydown', (event) => {
 });
 
 el.commandStrip.addEventListener('click', (event) => {
-  const localButton = event.target.closest('[data-local-command]');
-  if (localButton) {
-    const localCommand = localButton.getAttribute('data-local-command');
-    if (!localCommand) return;
-
-    const result = tryHandleLocalCommand(`/${localCommand}`, { hasAttachments: state.attachments.length > 0 });
-    if (result === 'handled') {
-      el.promptInput.value = '';
-      autoResizeTextarea();
-      renderCommandSuggestions();
-    }
-    return;
-  }
-
-  const button = event.target.closest('[data-command]');
+  const button = event.target.closest('[data-autocomplete-index]');
   if (!button) return;
-  el.promptInput.value = `${button.getAttribute('data-command')} `;
-  autoResizeTextarea();
-  renderCommandSuggestions();
-  el.promptInput.focus();
+
+  const index = Number(button.getAttribute('data-autocomplete-index'));
+  if (!Number.isFinite(index) || index < 0) return;
+  applyAutocompleteItem(state.autocompleteItems[index]);
+});
+
+el.sheetContent.addEventListener('change', (event) => {
+  if (!(event.target instanceof HTMLSelectElement)) return;
+  if (!event.target.hasAttribute('data-command-category-select')) return;
+  state.commandSheetCategory = event.target.value;
+  renderSheet();
 });
 
 el.sheetContent.addEventListener('pointerdown', (event) => {
