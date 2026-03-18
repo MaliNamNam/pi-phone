@@ -843,13 +843,34 @@ pre {
 }
 
 .quota-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  justify-content: flex-start;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 0.45rem;
   margin-top: 0.58rem;
   min-width: 0;
+}
+
+.quota-meta-row,
+.quota-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.quota-meta-row {
+  flex: 0 1 auto;
+  max-width: 70%;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.quota-pills-row {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  row-gap: 0.35rem;
 }
 
 .quota-pill {
@@ -867,6 +888,8 @@ pre {
 
 .cwd-pill {
   display: block;
+  flex: 0 1 auto;
+  width: fit-content;
   min-width: 0;
   max-width: 100%;
   color: var(--dim);
@@ -874,9 +897,8 @@ pre {
   text-overflow: ellipsis;
 }
 
-#quota-primary,
-#quota-secondary {
-  justify-self: end;
+.quota-context-pill {
+  flex: 0 0 auto;
 }
 
 .quota-pill.good {

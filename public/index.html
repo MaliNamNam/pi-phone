@@ -89,9 +89,14 @@
             <button id="steer-button" class="secondary hidden">Steer</button>
           </div>
           <div id="quota-row" class="quota-row hidden" aria-live="polite">
-            <span id="quota-cwd" class="quota-pill cwd-pill mono"></span>
-            <span id="quota-primary" class="quota-pill"></span>
-            <span id="quota-secondary" class="quota-pill"></span>
+            <div id="quota-meta-row" class="quota-meta-row hidden">
+              <span id="quota-cwd" class="quota-pill cwd-pill mono"></span>
+            </div>
+            <div id="quota-pills-row" class="quota-pills-row hidden">
+              <span id="quota-context" class="quota-pill quota-context-pill mono hidden"></span>
+              <span id="quota-primary" class="quota-pill"></span>
+              <span id="quota-secondary" class="quota-pill"></span>
+            </div>
           </div>
         </div>
       </section>

@@ -256,9 +256,12 @@ pi config
 
 ## Repository contents
 
-- `index.ts` — main Pi extension entry point
-- `phone-session-pool.ts` — multi-session worker pool for phone clients
+- `index.ts` — tiny package entry that registers the extension
+- `phone-session-pool.ts` — tiny compatibility export for the session pool API
+- `src/extension/` — backend modules for extension registration, server runtime, args, paths, quota, runtime control, sessions, static assets, tailscale, and theme mapping
+- `src/session-pool/` — focused session worker and session pool internals
 - `public/` — mobile web app assets
+- `public/app/` — focused frontend modules for state, UI, rendering, transport, commands, autocomplete, sheets, bindings, and attachments
 
 ## Package name
 
