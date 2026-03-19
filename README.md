@@ -2,6 +2,12 @@
 
 A phone-first remote UI for [Pi](https://pi.dev) that lets you drive a real Pi session from your phone.
 
+> **Changes from upstream (`@malinamnam/pi-phone`):**
+>
+> - Replaced Tailscale Serve with Cloudflare quick tunnels (`cloudflared tunnel --url`) — no account or config needed
+> - ANSI color codes from extensions now render as actual colors in the phone UI
+> - Shows a loading message while the tunnel is starting
+
 `pi-phone` starts a small local web server, launches a dedicated `pi --mode rpc` subprocess in your current project, and mirrors Pi's session state over WebSocket to a mobile web app.
 
 ## What it gives you
@@ -13,7 +19,7 @@ A phone-first remote UI for [Pi](https://pi.dev) that lets you drive a real Pi s
 - Model switching and thinking-level switching from the phone UI
 - Session browser, tree browser, fork flow, stats, compact, reload, and refresh actions
 - Image upload from the phone UI
-- Optional Tailscale Serve auto-setup for remote access from your phone
+- Cloudflare tunnel for remote access from your phone (no account required)
 - Single active-client mode for safety and simplicity
 
 ## Screenshot
@@ -25,7 +31,7 @@ A phone-first remote UI for [Pi](https://pi.dev) that lets you drive a real Pi s
 - Pi installed and working
 - Tested with Pi `0.58.4`
 - Node.js available for extension dependencies
-- Optional but strongly recommended: Tailscale installed and logged in if you want easy remote phone access
+- Optional but recommended: `cloudflared` installed if you want easy remote phone access (`brew install cloudflared`)
 
 ## Install
 
@@ -74,25 +80,17 @@ By default this:
 - uses the current Pi working directory
 - sets a `2 hour` idle auto-stop timeout
 - auto-generates a token if you did not provide one
-- tries to configure Tailscale Serve automatically
+- starts a Cloudflare tunnel automatically if `cloudflared` is installed
 
 ### 3. Open the phone UI
 
-There are two common cases:
-
-#### If Tailscale setup succeeds
-
-Pi will show a Tailscale URL like:
+Pi will show a Cloudflare tunnel URL like:
 
 ```text
-https://your-device.ts.net/
+https://random-words.trycloudflare.com
 ```
 
-Open that URL on your phone.
-
-#### If Tailscale setup does not succeed
-
-Pi will keep the local phone server running and show a fallback command. Since the server binds to localhost by default, the easiest path is usually to fix Tailscale and run `/phone-start` again.
+Open that URL on your phone. If `cloudflared` is not installed, the server still runs locally on `127.0.0.1:8787`.
 
 ### 4. Enter the token if prompted
 
@@ -127,7 +125,7 @@ Behavior:
 - default cwd: current Pi working directory
 - default idle auto-stop: `2 hours`
 - auto-generates a random token if you do not provide one
-- tries to auto-configure Tailscale Serve
+- starts a Cloudflare tunnel if `cloudflared` is available
 
 Use `-` to explicitly disable the token:
 
@@ -141,7 +139,7 @@ Use `-` to explicitly disable the token:
 /phone-stop
 ```
 
-Stops the phone server and also disables the matching Tailscale Serve route when possible.
+Stops the phone server and Cloudflare tunnel.
 
 ### `/phone-status`
 
@@ -149,7 +147,7 @@ Stops the phone server and also disables the matching Tailscale Serve route when
 /phone-status
 ```
 
-Shows whether the phone server is running and whether Tailscale Serve is currently pointing at it.
+Shows whether the phone server and Cloudflare tunnel are running.
 
 ### `/phone-token`
 
@@ -163,7 +161,7 @@ Shows the current token, or tells you that token auth is disabled for the curren
 
 1. Start Pi in your project
 2. Run `/phone-start`
-3. Open the Tailscale URL on your phone
+3. Open the Cloudflare tunnel URL on your phone
 4. Enter the token once if prompted
 5. Work from the phone UI
 6. When done, run `/phone-stop`
@@ -194,7 +192,7 @@ Because the extension drives a real Pi subprocess, the phone UI preserves much m
 - If you set the token to `-`, token auth is disabled.
 - Only one active phone client is allowed at a time; a new client replaces the old one.
 - The phone server auto-stops after the configured idle timeout.
-- The extension removes the matching Tailscale Serve route on idle timeout, `/phone-stop`, and parent Pi shutdown.
+- The Cloudflare tunnel process is killed on idle timeout, `/phone-stop`, and parent Pi shutdown.
 - The spawned child Pi process sets `PI_PHONE_CHILD=1` so the extension does not recursively start nested phone servers.
 - The phone browser stores the token in local storage for convenience.
 
@@ -213,16 +211,15 @@ If Pi reports that the port is already in use:
 /phone-start
 ```
 
-### Tailscale did not auto-configure
+### Cloudflare tunnel did not start
 
-Make sure Tailscale is installed, logged in, and available on `PATH`, then try again:
+Make sure `cloudflared` is installed and on `PATH`:
 
 ```bash
-tailscale status
-tailscale serve status
+cloudflared --version
 ```
 
-You can also use the manual fallback command shown by Pi.
+If not installed: `brew install cloudflared` (macOS) or see [cloudflared docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
 
 ### Invalid token on phone
 
@@ -258,7 +255,7 @@ pi config
 
 - `index.ts` — tiny package entry that registers the extension
 - `phone-session-pool.ts` — tiny compatibility export for the session pool API
-- `src/extension/` — backend modules for extension registration, server runtime, args, paths, quota, runtime control, sessions, static assets, tailscale, and theme mapping
+- `src/extension/` — backend modules for extension registration, server runtime, args, paths, quota, runtime control, sessions, static assets, cloudflare tunnel, and theme mapping
 - `src/session-pool/` — focused session worker and session pool internals
 - `public/` — mobile web app assets
 - `public/app/` — focused frontend modules for state, UI, rendering, transport, commands, autocomplete, sheets, bindings, and attachments
