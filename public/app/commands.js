@@ -1,4 +1,4 @@
-import { buildPromptImages, clearAttachments } from "./attachments.js";
+import { buildPromptPayload, clearAttachments, syncAttachmentsWithPrompt } from "./attachments.js";
 import { insertCdCommand, replacePromptRange } from "./autocomplete.js";
 import { renderCommandSuggestions } from "./autocomplete-controller.js";
 import { LOCAL_COMMAND_NAMES, THINKING_LEVELS } from "./constants.js";
@@ -68,6 +68,65 @@ function sendRemoteSlashCommand(command, { images = [], steer = false } = {}) {
   });
 
   return sent ? "handled" : false;
+}
+
+const INLINE_IMAGE_TOKEN_PATTERN = /⟦img\d+⟧|\{img\d*\}/g;
+
+function buildInlineDisplayContent(text, images = []) {
+  const value = String(text || "");
+  if (!images.length) return value;
+
+  INLINE_IMAGE_TOKEN_PATTERN.lastIndex = 0;
+  const matches = [...value.matchAll(INLINE_IMAGE_TOKEN_PATTERN)];
+  if (!matches.length) return value;
+
+  const content = [];
+  let lastIndex = 0;
+  let imageIndex = 0;
+
+  for (const match of matches) {
+    const token = match[0] || "";
+    const index = match.index ?? -1;
+    if (index < 0) continue;
+
+    const before = value.slice(lastIndex, index);
+    if (before) {
+      content.push({ type: "text", text: before });
+    }
+
+    const image = images[imageIndex];
+    if (image?.type === "image" && image.data && image.mimeType) {
+      content.push({
+        type: "image",
+        data: image.data,
+        mimeType: image.mimeType,
+      });
+      imageIndex += 1;
+    } else {
+      content.push({ type: "text", text: token });
+    }
+
+    lastIndex = index + token.length;
+  }
+
+  const after = value.slice(lastIndex);
+  if (after) {
+    content.push({ type: "text", text: after });
+  }
+
+  while (imageIndex < images.length) {
+    const image = images[imageIndex];
+    if (image?.type === "image" && image.data && image.mimeType) {
+      content.push({
+        type: "image",
+        data: image.data,
+        mimeType: image.mimeType,
+      });
+    }
+    imageIndex += 1;
+  }
+
+  return content;
 }
 
 export function insertSlashCommand(commandName) {
@@ -185,11 +244,14 @@ export function applyAutocompleteItem(item) {
 }
 
 export async function submitPrompt({ steer = false } = {}) {
-  const message = el.promptInput.value.trim();
-  if (!message && state.attachments.length === 0) return;
+  syncAttachmentsWithPrompt();
 
-  const localCommandResult = !steer && message
-    ? tryHandleLocalCommand(message, { hasAttachments: state.attachments.length > 0 })
+  const rawPrompt = el.promptInput.value;
+  const commandText = rawPrompt.trim();
+  if (!commandText && state.attachments.length === 0) return;
+
+  const localCommandResult = !steer && commandText
+    ? tryHandleLocalCommand(commandText, { hasAttachments: state.attachments.length > 0 })
     : false;
 
   if (localCommandResult) {
@@ -201,16 +263,16 @@ export async function submitPrompt({ steer = false } = {}) {
     return;
   }
 
-  let images = [];
-  if (state.attachments.length) {
-    try {
-      images = await buildPromptImages();
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Failed to read images", "error");
-      return;
-    }
+  let promptPayload = { message: rawPrompt, images: [] };
+  try {
+    promptPayload = await buildPromptPayload(rawPrompt);
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "Failed to read images", "error");
+    return;
   }
 
+  const message = promptPayload.message.trim();
+  const images = promptPayload.images;
   const remoteSlashCommand = message ? findRemoteSlashCommand(message) : null;
   if (remoteSlashCommand) {
     const remoteCommandResult = sendRemoteSlashCommand(remoteSlashCommand, { images, steer });
@@ -238,6 +300,7 @@ export async function submitPrompt({ steer = false } = {}) {
     kind: "user",
     meta: "just now",
     text: message || "(image prompt)",
+    rawContent: buildInlineDisplayContent(rawPrompt, images),
     imageCount: images.length,
   });
   renderMessages();

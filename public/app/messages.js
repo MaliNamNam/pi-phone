@@ -3,6 +3,7 @@ import {
   assistantParts,
   contentToText,
   countImages,
+  escapeAttribute,
   escapeHtml,
   formatTimestamp,
   toDetailString,
@@ -10,6 +11,79 @@ import {
 import { renderMarkdownLite } from "./markdown.js";
 import { renderRichToolContent } from "./tool-rendering.js";
 import { scrollMessagesToBottom, showToast } from "./ui.js";
+
+const INLINE_USER_CUSTOM_TYPES = new Set(["phone-inline-user-message"]);
+
+function userContentDisplayText(content) {
+  const imageCount = countImages(content);
+  if (!Array.isArray(content)) return contentToText(content);
+
+  const text = content
+    .filter((part) => part?.type === "text")
+    .map((part) => part.text || "")
+    .join("")
+    .trim();
+
+  if (text) return text;
+  if (imageCount === 1) return "[1 image attached]";
+  if (imageCount > 1) return `[${imageCount} images attached]`;
+  return contentToText(content);
+}
+
+function imageSource(part) {
+  if (!part || part.type !== "image") return "";
+  if (typeof part.previewUrl === "string" && part.previewUrl) return part.previewUrl;
+  if (typeof part.url === "string" && part.url) return part.url;
+  if (typeof part.data === "string" && part.data && typeof part.mimeType === "string" && part.mimeType) {
+    return `data:${escapeAttribute(part.mimeType)};base64,${escapeAttribute(part.data)}`;
+  }
+  return "";
+}
+
+function renderUserContent(content, fallbackText = "") {
+  if (!Array.isArray(content)) {
+    return {
+      html: renderMarkdownLite(typeof content === "string" ? content : fallbackText),
+      renderedImages: 0,
+    };
+  }
+
+  const blocks = [];
+  let imageIndex = 0;
+
+  for (const part of content) {
+    if (part?.type === "text") {
+      const text = String(part.text || "");
+      if (text.trim()) {
+        blocks.push(`<div class="user-message-text-block">${renderMarkdownLite(text)}</div>`);
+      }
+      continue;
+    }
+
+    if (part?.type !== "image") continue;
+    const src = imageSource(part);
+    if (!src) continue;
+    imageIndex += 1;
+    const alt = part.name || `Attached image ${imageIndex}`;
+    blocks.push(`
+      <div class="user-message-image-wrap">
+        <img class="user-message-image" src="${src}" alt="${escapeAttribute(alt)}" loading="lazy" />
+      </div>
+    `);
+  }
+
+  if (!blocks.length) {
+    return {
+      html: renderMarkdownLite(fallbackText),
+      renderedImages: 0,
+    };
+  }
+
+  return {
+    html: `<div class="user-message-inline-content">${blocks.join("")}</div>`,
+    renderedImages: imageIndex,
+  };
+}
 
 export function transformMessage(message, index) {
   if (!message || typeof message !== "object") return [];
@@ -19,7 +93,8 @@ export function transformMessage(message, index) {
       id: `user-${message.timestamp || index}`,
       kind: "user",
       meta: formatTimestamp(message.timestamp),
-      text: contentToText(message.content),
+      text: userContentDisplayText(message.content),
+      rawContent: message.content,
       imageCount: countImages(message.content),
     }];
   }
@@ -76,6 +151,18 @@ export function transformMessage(message, index) {
 
   if (message.role === "custom") {
     if (message.display === false) return [];
+
+    if (INLINE_USER_CUSTOM_TYPES.has(message.customType || "")) {
+      return [{
+        id: `custom-user-${message.timestamp || index}`,
+        kind: "user",
+        meta: formatTimestamp(message.timestamp),
+        text: userContentDisplayText(message.content),
+        rawContent: message.content,
+        imageCount: countImages(message.content),
+      }];
+    }
+
     return [{
       id: `custom-${message.timestamp || index}`,
       kind: "custom",
@@ -111,9 +198,11 @@ export function transformMessage(message, index) {
   return [];
 }
 
-function renderMessageMeta(item) {
+function renderMessageMeta(item, options = {}) {
   const pills = [];
-  if (item.imageCount) pills.push(`<span class="inline-pill">${item.imageCount} image${item.imageCount === 1 ? "" : "s"}</span>`);
+  if (item.imageCount && !options.suppressImageCount) {
+    pills.push(`<span class="inline-pill">${item.imageCount} image${item.imageCount === 1 ? "" : "s"}</span>`);
+  }
   if (item.status) pills.push(`<span class="inline-pill">${escapeHtml(item.status)}</span>`);
   return pills.join("");
 }
@@ -173,9 +262,15 @@ function renderMessage(item) {
     user: "You",
   }[item.kind] || "Message";
 
+  const renderedUser = item.kind === "user"
+    ? renderUserContent(item.rawContent, item.text || "")
+    : { html: "", renderedImages: 0 };
+
   const bodyMain = richTool || (item.kind === "tool"
     ? `<pre>${escapeHtml(item.text || "")}</pre>`
-    : renderMarkdownLite(item.text || ""));
+    : item.kind === "user"
+      ? renderedUser.html
+      : renderMarkdownLite(item.text || ""));
 
   const detailValue = item.kind === "tool" ? toolDetailsForSecondarySection(item) : item.details;
   const extraDetails = item.kind === "assistant"
@@ -192,7 +287,7 @@ function renderMessage(item) {
       </div>
       <div class="message-body">
         ${bodyMain}
-        ${richTool ? "" : renderMessageMeta(item)}
+        ${richTool ? "" : renderMessageMeta(item, { suppressImageCount: renderedUser.renderedImages > 0 })}
         ${extraDetails}
       </div>
     </article>

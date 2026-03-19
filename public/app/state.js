@@ -31,6 +31,7 @@ export const state = {
   autocompleteRemoteRequestId: 0,
   autocompleteRemoteTimer: null,
   attachments: [],
+  nextAttachmentTokenId: 1,
   lastSheetPointerAction: "",
   lastSheetPointerActionAt: 0,
   toolPanelOpen: new Map(),

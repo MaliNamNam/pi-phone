@@ -1,4 +1,4 @@
-import { addAttachments, clearAttachments, removeAttachment, renderAttachmentStrip } from "./attachments.js";
+import { addAttachments, clearAttachments, removeAttachment, renderAttachmentStrip, syncAttachmentsWithPrompt } from "./attachments.js";
 import { renderCommandSuggestions } from "./autocomplete-controller.js";
 import { applyAutocompleteItem, submitPrompt } from "./commands.js";
 import { el, state } from "./state.js";
@@ -17,6 +17,7 @@ import { insertCdCommand } from "./autocomplete.js";
 
 export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
   el.promptInput.addEventListener("input", () => {
+    syncAttachmentsWithPrompt();
     autoResizeTextarea();
     renderCommandSuggestions();
   });
@@ -62,6 +63,7 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
   el.attachImageButton.addEventListener("click", () => el.imageInput.click());
   el.imageInput.addEventListener("change", (event) => {
     addAttachments(event.target.files);
+    renderCommandSuggestions();
     el.imageInput.value = "";
   });
 
@@ -69,6 +71,7 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
     const button = event.target.closest("[data-remove-attachment]");
     if (!button) return;
     removeAttachment(button.getAttribute("data-remove-attachment"));
+    renderCommandSuggestions();
   });
 
   el.promptInput.addEventListener("keydown", (event) => {
