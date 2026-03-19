@@ -854,6 +854,7 @@ export class PhoneServerRuntime {
     }
 
     await this.sessionPool?.ensureDefaultWorker();
+    ctx.ui.notify("Starting Cloudflare Tunnel...", "info");
     const tunnel = await enableCloudflareTunnel(this.config.port);
     this.updateStatusUi(ctx);
     ctx.ui.notify(this.statusText(), "info");

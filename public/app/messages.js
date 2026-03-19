@@ -6,6 +6,7 @@ import {
   escapeAttribute,
   escapeHtml,
   formatTimestamp,
+  ansiToHtml,
   toDetailString,
 } from "./formatters.js";
 import { renderMarkdownLite } from "./markdown.js";
@@ -397,7 +398,7 @@ export function renderWidgets() {
     cards.unshift(`
       <article class="widget-card">
         <h3>Extension status</h3>
-        <div>${escapeHtml(state.footerStatus)}</div>
+        <div>${ansiToHtml(state.footerStatus)}</div>
       </article>
     `);
   }
