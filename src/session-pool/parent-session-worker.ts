@@ -261,6 +261,26 @@ export class PhoneParentSessionWorker implements SessionController {
     return this.options.getCommandCtx();
   }
 
+  private async withAutoConfirmedUi<T>(
+    ctx: ExtensionContext | ExtensionCommandContext | null,
+    action: () => Promise<T>,
+  ) {
+    const ui = ctx?.ui;
+    if (!ui || typeof ui.confirm !== "function") {
+      return action();
+    }
+
+    const originalConfirm = ui.confirm;
+    // Phone-triggered parent session resets should not block on a terminal confirmation dialog.
+    ui.confirm = async (_title: string, _message: string, _options?: unknown) => true;
+
+    try {
+      return await action();
+    } finally {
+      ui.confirm = originalConfirm;
+    }
+  }
+
   private comparableContent(content: any) {
     const preview = contentToPreviewText(content);
     if (preview) {
@@ -615,9 +635,9 @@ export class PhoneParentSessionWorker implements SessionController {
       if (type === "new_session") {
         const commandCtx = this.currentCommandCtx();
         if (!commandCtx) throw new Error("No active command context is available to create a new live CLI session.");
-        const result = await commandCtx.newSession(typeof command.parentSession === "string" && command.parentSession
+        const result = await this.withAutoConfirmedUi(commandCtx, () => commandCtx.newSession(typeof command.parentSession === "string" && command.parentSession
           ? { parentSession: command.parentSession }
-          : undefined);
+          : undefined));
         await this.refreshCachedSnapshot();
         this.emitSnapshot();
         return this.buildResponse(id, type, true, result);

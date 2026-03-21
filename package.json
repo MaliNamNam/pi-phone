@@ -1,6 +1,6 @@
 {
   "name": "@malinamnam/pi-phone",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Phone-first remote UI extension for Pi with Tailscale-friendly access",
   "type": "module",
   "homepage": "https://github.com/MaliNamNam/pi-phone#readme",
