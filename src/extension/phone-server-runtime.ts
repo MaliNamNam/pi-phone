@@ -1033,9 +1033,7 @@ export class PhoneServerRuntime {
       const label = theme.fg("muted", " phone on");
       ctx.ui.setStatus("pi-phone", `📱 ${dot}${label}`);
     } else {
-      const dot = theme.fg("dim", "○");
-      const label = theme.fg("dim", " phone off");
-      ctx.ui.setStatus("pi-phone", `📱 ${dot}${label}`);
+      ctx.ui.setStatus("pi-phone", `📱`);
     }
   }
 
