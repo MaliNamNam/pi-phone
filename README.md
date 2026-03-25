@@ -1,5 +1,8 @@
 # pi-phone
 
+> **Fork of [MaliNamNam/pi-phone](https://github.com/MaliNamNam/pi-phone).**
+> This fork replaces Tailscale Serve with [Cloudflare quick tunnels](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) for remote access — no account or login required.
+
 A phone-first remote UI for [Pi](https://pi.dev) that lets you drive a real Pi session from your phone.
 
 `pi-phone` starts a small local web server, mirrors your current live Pi CLI session over WebSocket to a mobile web app, and can spawn dedicated parallel `pi --mode rpc` sessions when you open additional parallel sessions from the phone UI.
@@ -26,7 +29,7 @@ A phone-first remote UI for [Pi](https://pi.dev) that lets you drive a real Pi s
 - Pi installed and working
 - Tested with Pi `0.58.4`
 - Node.js available for extension dependencies
-- Optional but recommended: `cloudflared` installed if you want easy remote phone access (`brew install cloudflared`)
+- Cloudflare tunnel binary is included as a dependency — no separate install needed
 
 ## Install
 
@@ -75,7 +78,7 @@ By default this:
 - uses the current Pi working directory
 - sets a `2 hour` idle auto-stop timeout
 - auto-generates a token if you did not provide one
-- starts a Cloudflare tunnel automatically if `cloudflared` is installed
+- starts a Cloudflare tunnel automatically
 
 ### 3. Open the phone UI
 
@@ -85,7 +88,7 @@ Pi will show a Cloudflare tunnel URL like:
 https://random-words.trycloudflare.com
 ```
 
-Open that URL on your phone. If `cloudflared` is not installed, the server still runs locally on `127.0.0.1:8787`.
+Open that URL on your phone.
 
 ### 4. Enter the token if prompted
 
@@ -241,13 +244,7 @@ If Pi reports that the port is already in use:
 
 ### Cloudflare tunnel did not start
 
-Make sure `cloudflared` is installed and on `PATH`:
-
-```bash
-cloudflared --version
-```
-
-If not installed: `brew install cloudflared` (macOS) or see [cloudflared docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
+The `cloudflared` binary is bundled as an npm dependency. Try reinstalling the extension and restarting:
 
 ### Invalid token on phone
 

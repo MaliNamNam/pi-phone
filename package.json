@@ -35,6 +35,7 @@
     ]
   },
   "dependencies": {
+    "cloudflared": "^0.7.1",
     "ws": "^8.18.3"
   },
   "devDependencies": {

@@ -1148,6 +1148,10 @@ export class PhoneServerRuntime {
     } else {
       ctx.ui.notify("Pi Phone token is disabled for this server.", "info");
     }
+    const tunnel = getCloudflareTunnelInfo();
+    if (tunnel.active) {
+      ctx.ui.notify(`Cloudflare Tunnel: ${tunnel.url}`, "info");
+    }
   }
 
   async handleSessionStart(ctx: ExtensionContext) {

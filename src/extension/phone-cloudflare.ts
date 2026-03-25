@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { bin as cloudflareBin } from "cloudflared";
 
 let child: ChildProcess | null = null;
 let tunnelUrl = "";
@@ -11,7 +12,7 @@ export async function enableCloudflareTunnel(port: number): Promise<{ url: strin
   tunnelUrl = "";
 
   try {
-    const spawned = spawn("cloudflared", ["tunnel", "--url", `http://localhost:${port}`], {
+    const spawned = spawn(cloudflareBin, ["tunnel", "--url", `http://localhost:${port}`], {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
