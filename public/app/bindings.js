@@ -2,7 +2,7 @@ import { addAttachments, clearAttachments, removeAttachment, renderAttachmentStr
 import { renderCommandSuggestions } from "./autocomplete-controller.js";
 import { applyAutocompleteItem, submitPrompt } from "./commands.js";
 import { el, state } from "./state.js";
-import { handleSheetButtonAction, sheetButtonActionKey } from "./sheet-actions.js";
+import { handleSheetButtonAction } from "./sheet-actions.js";
 import { closeSheet, openSheet } from "./sheet-navigation.js";
 import { renderSheet } from "./sheets-view.js";
 import { connectSocket, refreshAll, sendRpc } from "./transport.js";
@@ -108,26 +108,9 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
     renderSheet();
   });
 
-  el.sheetContent.addEventListener("pointerdown", (event) => {
-    const button = event.target.closest("button");
-    if (!button) return;
-
-    const actionKey = sheetButtonActionKey(button);
-    state.lastSheetPointerAction = actionKey;
-    state.lastSheetPointerActionAt = Date.now();
-  });
-
   el.sheetContent.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
-
-    const actionKey = sheetButtonActionKey(button);
-    if (state.lastSheetPointerAction === actionKey && Date.now() - state.lastSheetPointerActionAt < 800) {
-      state.lastSheetPointerAction = "";
-      state.lastSheetPointerActionAt = 0;
-      return;
-    }
-
     handleSheetButtonAction(button);
   });
 

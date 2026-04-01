@@ -9,14 +9,6 @@ import { closeSheet, openSheet } from "./sheet-navigation.js";
 import { refreshAll, sendRpc } from "./transport.js";
 import { autoResizeTextarea } from "./ui.js";
 
-export function sheetButtonActionKey(button) {
-  return [
-    button.getAttribute("data-sheet-action") || "",
-    button.getAttribute("data-run-command") || "",
-    button.getAttribute("data-run-local-command") || "",
-  ].join("|");
-}
-
 export function handleSheetButtonAction(button) {
   const action = button.getAttribute("data-sheet-action");
   if (action === "refresh") return refreshSheet(), true;
