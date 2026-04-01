@@ -312,8 +312,8 @@ function renderMessageInner(item) {
         ${richTool ? "" : renderMessageMeta(item, { suppressImageCount: renderedUser.renderedImages > 0 })}
         ${extraDetails}
         ${gradientElement}
+        ${expandButton}
       </div>
-      ${expandButton}
   `;
 }
 

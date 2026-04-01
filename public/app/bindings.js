@@ -153,12 +153,13 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
     }
   });
 
-  // Message expand/collapse buttons
+  // Message expand/collapse (button or gradient click)
   document.addEventListener("click", (event) => {
-    const button = event.target.closest(".msg-expand-btn");
-    if (!button) return;
+    const target = event.target.closest(".msg-expand-btn, .msg-gradient");
+    if (!target) return;
 
-    const msgId = button.dataset.msgId;
+    const article = target.closest(".message");
+    const msgId = article?.dataset.itemId;
     if (!msgId) return;
 
     const wasExpanded = state.messageExpanded.has(msgId);
@@ -170,12 +171,9 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
 
     updateMessageCaps();
 
-    // Scroll into view if just expanded (after reflow)
-    if (!wasExpanded) {
-      requestAnimationFrame(() => {
-        const body = el.messages.querySelector(`[data-item-id="${CSS.escape(msgId)}"] .message-body`);
-        body?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      });
+    // When collapsing, scroll to keep the message in view
+    if (wasExpanded && article) {
+      article.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   });
 
