@@ -6,9 +6,10 @@ export function parsePhoneStartArgs(args: string | undefined, current: PhoneConf
   let tokenSpecified = false;
   let idleSpecified = false;
   let local = false;
+  let cfTokenSpecified = false;
 
   if (!args?.trim()) {
-    return { config: next, tokenSpecified, idleSpecified, local };
+    return { config: next, tokenSpecified, idleSpecified, local, cfTokenSpecified };
   }
 
   const tokens = args.trim().split(/\s+/);
@@ -102,6 +103,32 @@ export function parsePhoneStartArgs(args: string | undefined, current: PhoneConf
       continue;
     }
 
+    if (token === "--cf-token" && tokens[index + 1] !== undefined) {
+      cfTokenSpecified = true;
+      next.cfToken = tokens[index + 1];
+      index += 2;
+      continue;
+    }
+
+    if (token.startsWith("--cf-token=")) {
+      cfTokenSpecified = true;
+      next.cfToken = token.slice(11);
+      index += 1;
+      continue;
+    }
+
+    if (token === "--cf-hostname" && tokens[index + 1]) {
+      next.cfHostname = tokens[index + 1];
+      index += 2;
+      continue;
+    }
+
+    if (token.startsWith("--cf-hostname=")) {
+      next.cfHostname = token.slice(14);
+      index += 1;
+      continue;
+    }
+
     if (token === "--local" || token === "local") {
       local = true;
       index += 1;
@@ -124,5 +151,5 @@ export function parsePhoneStartArgs(args: string | undefined, current: PhoneConf
     index += 1;
   }
 
-  return { config: next, tokenSpecified, idleSpecified, local };
+  return { config: next, tokenSpecified, idleSpecified, local, cfTokenSpecified };
 }

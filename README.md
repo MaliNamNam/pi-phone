@@ -100,6 +100,27 @@ You can view it again at any time with:
 /phone-token
 ```
 
+## Static hostname (optional)
+
+By default, Pi Phone uses random `*.trycloudflare.com` URLs. For a persistent hostname like `phone.example.com`:
+
+1. **Create a tunnel** in the [Cloudflare dashboard](https://one.dash.cloudflare.com/) → Networks → Tunnels → Create
+2. **Add a public hostname** pointing to `http://localhost:8787` (or your Pi Phone port)
+3. **Copy the tunnel token** from the dashboard (the long `eyJ...` string in the installation command)
+4. **Set the environment variable** before starting Pi:
+   ```bash
+   export PI_PHONE_CF_TOKEN="eyJ..."
+   export PI_PHONE_CF_HOSTNAME="phone.example.com"
+   ```
+5. **Start Pi Phone** — it will connect to your tunnel automatically
+
+Or pass via CLI:
+```text
+/phone-start --cf-token eyJ... --cf-hostname phone.example.com
+```
+
+Each Pi Phone instance should use its own tunnel (create multiple tunnels in the dashboard if needed).
+
 ## Command reference
 
 ### `/phone-start`
@@ -114,6 +135,7 @@ Examples:
 /phone-start --cwd /path/to/project
 /phone-start --idle-mins 20
 /phone-start --idle-secs 90
+/phone-start --cf-token eyJ... --cf-hostname phone.example.com
 ```
 
 Behavior:
@@ -124,6 +146,7 @@ Behavior:
 - default idle auto-stop: `2 hours`
 - auto-generates a random token if you do not provide one
 - starts a Cloudflare tunnel if `cloudflared` is available
+- uses a custom Cloudflare tunnel if `--cf-token` is provided
 
 Use `-` to explicitly disable the token:
 

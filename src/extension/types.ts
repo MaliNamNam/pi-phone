@@ -6,6 +6,8 @@ export type PhoneConfig = {
   token: string;
   cwd: string;
   idleTimeoutMs: number;
+  cfToken: string;
+  cfHostname: string;
 };
 
 export type ParsedPhoneArgs = {
@@ -13,6 +15,7 @@ export type ParsedPhoneArgs = {
   tokenSpecified: boolean;
   idleSpecified: boolean;
   local: boolean;
+  cfTokenSpecified: boolean;
 };
 
 export type PersistedPhoneRuntime = {

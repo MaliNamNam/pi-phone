@@ -109,6 +109,8 @@ export class PhoneServerRuntime {
     idleTimeoutMs: Number.isFinite(Number(process.env.PI_PHONE_IDLE_MINUTES))
       ? Math.max(0, Math.round(Number(process.env.PI_PHONE_IDLE_MINUTES) * 60_000))
       : DEFAULT_IDLE_TIMEOUT_MS,
+    cfToken: process.env.PI_PHONE_CF_TOKEN || "",
+    cfHostname: process.env.PI_PHONE_CF_HOSTNAME || "",
   };
   private server: Server | null = null;
   private wss: WebSocketServer | null = null;
@@ -165,6 +167,7 @@ export class PhoneServerRuntime {
       lastActivityAt: this.lastActivityAt,
       singleClientMode: true,
       inputSource: this.inputSource,
+      cfHostname: this.config.cfHostname || undefined,
       ...(theme ? { theme } : {}),
       // Snapshot-level state the phone UI reads from get_state / snapshot.state
       model: model ? {
@@ -1284,12 +1287,21 @@ export class PhoneServerRuntime {
     const changed = ["host", "port", "token", "cwd", "idleTimeoutMs"].some(
       (key) => nextConfig[key as keyof PhoneConfig] !== this.config[key as keyof PhoneConfig],
     );
+    const cfChanged = nextConfig.cfToken !== this.config.cfToken || nextConfig.cfHostname !== this.config.cfHostname;
+    if (cfChanged && child) {
+      await disableCloudflareTunnel();
+    }
     if (parsed.tokenSpecified) {
       this.tokenWasGenerated = false;
     } else if (nextConfig.token !== this.config.token) {
       this.tokenWasGenerated = true;
     }
     this.config = nextConfig;
+
+    // Strip protocol if user included it (e.g., "https://example.com" -> "example.com")
+    if (this.config.cfHostname) {
+      this.config.cfHostname = this.config.cfHostname.replace(/^https?:\/\//, "");
+    }
 
     this.serverWasRunning = Boolean(this.server);
     if (this.server && changed) {
@@ -1321,9 +1333,15 @@ export class PhoneServerRuntime {
 
     if (!parsed.local) {
       ctx.ui.notify("Starting Cloudflare Tunnel...", "info");
-      const tunnel = await enableCloudflareTunnel(this.config.port);
-      if (tunnel.url) {
-        ctx.ui.notify(`Cloudflare Tunnel: ${tunnel.url}`, "info");
+      const tunnel = await enableCloudflareTunnel(this.config.port, this.config.cfToken);
+      if (tunnel.connected) {
+        if (this.config.cfHostname) {
+          ctx.ui.notify(`Cloudflare Tunnel: https://${this.config.cfHostname}`, "info");
+        } else if (tunnel.url) {
+          ctx.ui.notify(`Cloudflare Tunnel: ${tunnel.url}`, "info");
+        } else {
+          ctx.ui.notify("Cloudflare Tunnel connected (hostname configured in dashboard)", "info");
+        }
       } else if (tunnel.error) {
         ctx.ui.notify(`Could not start cloudflared: ${tunnel.error}`, "warning");
       }
@@ -1331,7 +1349,13 @@ export class PhoneServerRuntime {
 
     this.updateStatusUi(ctx);
     const tunnelInfo = getCloudflareTunnelInfo();
-    const openUrl = tunnelInfo.active && tunnelInfo.url ? tunnelInfo.url : `http://${this.config.host}:${this.config.port}`;
+    const cfUrl = this.config.cfHostname ? `https://${this.config.cfHostname}` : "";
+    const openUrl =
+      tunnelInfo.active && cfUrl
+        ? cfUrl
+        : tunnelInfo.active && tunnelInfo.url
+          ? tunnelInfo.url
+          : `http://${this.config.host}:${this.config.port}`;
     ctx.ui.notify(this.statusText(), "info");
     if (this.config.token) {
       // Show token directly if: newly generated, or server was just restarted (user saw it before)
@@ -1384,9 +1408,18 @@ export class PhoneServerRuntime {
 
   private notifyAccessInfo(ctx: AnyCtx) {
     const tunnel = getCloudflareTunnelInfo();
-    const url = tunnel.active && tunnel.url ? tunnel.url : (this.server ? `http://${this.config.host}:${this.config.port}` : null);
-    const token = this.tokenWasGenerated ? this.config.token : (this.config.token ? "(set)" : null);
-    const parts = [url, token ? `token: ${token}` : null].filter(Boolean);
+    const cfUrl = this.config.cfHostname ? `https://${this.config.cfHostname}` : "";
+    const url =
+      tunnel.active && cfUrl
+        ? cfUrl
+        : tunnel.active && tunnel.url
+          ? tunnel.url
+          : this.server
+            ? `http://${this.config.host}:${this.config.port}`
+            : null;
+    const token = this.tokenWasGenerated ? this.config.token : this.config.token ? "(set)" : null;
+    const cfToken = tunnel.active && this.config.cfToken ? "CF tunnel: (set)" : null;
+    const parts = [url, token ? `token: ${token}` : null, cfToken].filter(Boolean);
     if (parts.length) {
       ctx.ui.notify(parts.join(" — "), "info");
     }
