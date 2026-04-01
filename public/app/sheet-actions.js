@@ -41,7 +41,7 @@ export function handleSheetButtonAction(button) {
 
   const modelProvider = button.getAttribute("data-model-provider");
   const modelId = button.getAttribute("data-model-id");
-  if (modelProvider && modelId) return sendRpc({ type: "set_model", provider: modelProvider, modelId }), true;
+  if (modelProvider && modelId) return sendRpc({ type: "set_model", provider: modelProvider, modelId }), closeSheet(), true;
 
   const runLocalCommand = button.getAttribute("data-run-local-command");
   if (runLocalCommand) return handleRunLocalCommand(runLocalCommand), true;

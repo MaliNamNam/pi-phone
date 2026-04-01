@@ -353,6 +353,7 @@ export async function handleEnvelope(event) {
     state.status = { ...(state.status || {}), isStreaming: Boolean(event.state?.isStreaming) };
     state.messages = (event.messages || []).flatMap(transformMessage);
     state.commands = event.commands || state.commands;
+    if (event.models) state.models = event.models;
     clearTransientState();
 
     if (event.liveAssistantMessage?.role === "assistant") {

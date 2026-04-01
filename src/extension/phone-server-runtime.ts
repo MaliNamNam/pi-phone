@@ -181,11 +181,25 @@ export class PhoneServerRuntime {
     };
   }
 
+  /** Minimal state for unauthenticated requests (health check). */
+  private buildPublicState() {
+    return {
+      hasToken: Boolean(this.config.token),
+      isRunning: Boolean(this.server),
+    };
+  }
+
   private buildSnapshot() {
     const state = this.buildState();
     const entries = this.latestCtx?.sessionManager?.getBranch?.() || [];
     const messages = entriesToMessages(entries);
     const commands = this.pi.getCommands?.() || [];
+
+    const models = (this.latestCtx?.modelRegistry?.getAvailable() || []).map((m: any) => ({
+      id: m.id,
+      name: m.name || m.id,
+      provider: m.provider,
+    }));
 
     return {
       channel: "snapshot" as const,
@@ -193,6 +207,7 @@ export class PhoneServerRuntime {
       sessionWorkerId: state.sessionId,
       messages,
       commands,
+      models,
       liveAssistantMessage: this.liveAssistantMessage,
       liveTools: [...this.liveTools.values()],
     };
@@ -554,11 +569,13 @@ export class PhoneServerRuntime {
     }
 
     if (url.pathname === "/api/health") {
+      // Health check is always unauthenticated — returns minimal state so the UI
+      // knows whether a token is required (for prompting the user).
       res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
       });
-      res.end(JSON.stringify(this.buildState()));
+      res.end(JSON.stringify(this.buildPublicState()));
       return;
     }
 
@@ -566,6 +583,12 @@ export class PhoneServerRuntime {
       if (req.method !== "GET" && req.method !== "HEAD") {
         res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({ error: "Method not allowed" }));
+        return;
+      }
+
+      if (this.config.token && url.searchParams.get("token") !== this.config.token) {
+        res.writeHead(403, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "Forbidden" }));
         return;
       }
 
@@ -978,10 +1001,15 @@ export class PhoneServerRuntime {
     }
 
     if (command.type === "get_available_models") {
-      // Not directly available via extension API — return empty
+      const ctx = this.latestCtx;
+      const models = (ctx?.modelRegistry?.getAvailable() || []).map((m: any) => ({
+        id: m.id,
+        name: m.name || m.id,
+        provider: m.provider,
+      }));
       this.send(ws, {
         channel: "rpc",
-        payload: { type: "response", command: "get_available_models", success: true, data: { models: [] } },
+        payload: { type: "response", command: "get_available_models", success: true, data: { models } },
       });
       return;
     }
@@ -1219,7 +1247,7 @@ export class PhoneServerRuntime {
     const theme = ctx.ui.theme;
     if (this.server) {
       const dot = theme.fg("success", "●");
-      const label = theme.fg("default", " phone on");
+      const label = theme.fg("text", " phone on");
       ctx.ui.setStatus("pi-phone", `📱 ${dot}${label}`);
     } else {
       ctx.ui.setStatus("pi-phone", "");
@@ -1256,9 +1284,12 @@ export class PhoneServerRuntime {
     const changed = ["host", "port", "token", "cwd", "idleTimeoutMs"].some(
       (key) => nextConfig[key as keyof PhoneConfig] !== this.config[key as keyof PhoneConfig],
     );
-    const generatedToken = nextConfig.token && nextConfig.token !== this.config.token && !parsed.tokenSpecified;
+    if (parsed.tokenSpecified) {
+      this.tokenWasGenerated = false;
+    } else if (nextConfig.token !== this.config.token) {
+      this.tokenWasGenerated = true;
+    }
     this.config = nextConfig;
-    this.tokenWasGenerated = Boolean(generatedToken);
 
     this.serverWasRunning = Boolean(this.server);
     if (this.server && changed) {
@@ -1301,7 +1332,7 @@ export class PhoneServerRuntime {
     ctx.ui.notify(this.statusText(), "info");
     if (this.config.token) {
       // Show token directly if: newly generated, or server was just restarted (user saw it before)
-      const showTokenDirectly = generatedToken || this.serverWasRunning;
+      const showTokenDirectly = this.tokenWasGenerated || this.serverWasRunning;
       if (showTokenDirectly) {
         ctx.ui.notify(`Open ${openUrl} — token: ${this.config.token}`, "info");
       } else {
@@ -1337,29 +1368,24 @@ export class PhoneServerRuntime {
     this.captureCtx(ctx);
     this.updateStatusUi(ctx);
     ctx.ui.notify(this.statusText(), this.server ? "info" : "warning");
-
-    const tunnel = getCloudflareTunnelInfo();
-    if (tunnel.active) {
-      ctx.ui.notify(`Cloudflare Tunnel: ${tunnel.url}`, "info");
-    } else if (this.server) {
-      ctx.ui.notify("Cloudflare Tunnel is not running.", "warning");
-    }
+    this.notifyAccessInfo(ctx);
   }
 
+  // TODO: /phone-token routes to handlePhoneStatus for unknown reasons — Pi runner
+  // maps the command name correctly but the wrong handler runs. Merged both into
+  // notifyAccessInfo as a workaround.
   handlePhoneToken(ctx: ExtensionCommandContext) {
     this.captureCtx(ctx);
-    if (this.config.token) {
-      if (this.tokenWasGenerated) {
-        ctx.ui.notify(`Pi Phone token: ${this.config.token}`, "info");
-      } else {
-        ctx.ui.notify("Pi Phone token is set (value not shown for security).", "info");
-      }
-    } else {
-      ctx.ui.notify("Pi Phone token is disabled for this server.", "info");
-    }
+    this.notifyAccessInfo(ctx);
+  }
+
+  private notifyAccessInfo(ctx: AnyCtx) {
     const tunnel = getCloudflareTunnelInfo();
-    if (tunnel.active) {
-      ctx.ui.notify(`Cloudflare Tunnel: ${tunnel.url}`, "info");
+    const url = tunnel.active && tunnel.url ? tunnel.url : (this.server ? `http://${this.config.host}:${this.config.port}` : null);
+    const token = this.tokenWasGenerated ? this.config.token : (this.config.token ? "(set)" : null);
+    const parts = [url, token ? `token: ${token}` : null].filter(Boolean);
+    if (parts.length) {
+      ctx.ui.notify(parts.join(" — "), "info");
     }
   }
 
