@@ -33,6 +33,7 @@ export default function registerPhoneExtension(pi: ExtensionAPI) {
             "Pi Phone commands:\n/phone start [port] [token] [--local] [--cwd path] [--host 127.0.0.1] [--idle-mins 20]\n/phone stop\n/phone status\n/phone token\n/phone pushover",
             "info",
           );
+          await runtime.handlePhoneStatus(ctx);
       }
     },
   });
