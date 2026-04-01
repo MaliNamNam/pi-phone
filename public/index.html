@@ -8,7 +8,7 @@
     <link rel="manifest" href="/manifest.webmanifest?v=20260323-1" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon.svg" />
-    <link rel="stylesheet" href="/styles.css?v=20260323-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260401-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -22,32 +22,31 @@
       </header>
 
       <section class="status-card">
-        <div class="status-grid">
-          <div>
-            <div class="label">Working directory</div>
-            <div class="value mono" id="cwd-value">—</div>
+        <div class="status-row">
+          <div class="status-item">
+            <span class="status-label">CWD</span>
+            <span class="status-value mono" id="cwd-value">—</span>
           </div>
-          <div>
-            <div class="label">Model</div>
-            <div class="value" id="model-value">—</div>
+          <div class="status-item">
+            <span class="status-label">Model</span>
+            <span class="status-value" id="model-value">—</span>
           </div>
-          <div>
-            <div class="label">Thinking</div>
-            <div class="value" id="thinking-value">—</div>
+          <div class="status-item">
+            <span class="status-label">Thinking</span>
+            <span class="status-value" id="thinking-value">—</span>
           </div>
-          <div>
-            <div class="label">State</div>
-            <div class="value" id="streaming-value">Idle</div>
+          <div class="status-item">
+            <span class="status-label">State</span>
+            <span class="status-value" id="streaming-value">Idle</span>
           </div>
-          <div>
-            <div class="label">Server</div>
-            <div class="value mono" id="server-value">—</div>
+          <div class="status-item">
+            <span class="status-label">Server</span>
+            <span class="status-value mono" id="server-value">—</span>
           </div>
         </div>
         <div class="button-row compact">
           <button id="actions-button" class="secondary">Actions</button>
           <button id="refresh-button" class="secondary">Refresh</button>
-          <button id="abort-button" class="danger">Abort</button>
         </div>
       </section>
 
@@ -73,10 +72,15 @@
               enterkeyhint="enter"
             ></textarea>
             <button id="stop-button" class="composer-inline-button stop-button danger hidden" aria-label="Stop response" title="Stop response">Stop</button>
-            <button id="send-button" class="composer-inline-button send-button" aria-label="Send message" title="Send message">&gt;</button>
+            <button id="send-button" class="composer-inline-button send-button" aria-label="Send message" title="Send message">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
           </div>
           <div class="composer-actions">
-            <button id="attach-image-button" class="secondary">Attach</button>
+            <button id="attach-image-button" class="secondary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 0.25rem;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              Attach
+            </button>
             <button id="insert-command-button" class="secondary">Commands</button>
             <button id="cd-command-button" class="secondary">/cd</button>
             <button id="steer-button" class="secondary hidden">Steer</button>

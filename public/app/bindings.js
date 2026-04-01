@@ -64,7 +64,6 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
   window.addEventListener("scroll", syncFollowLatestOnScroll, { passive: true });
 
   el.refreshButton.addEventListener("click", refreshAll);
-  el.abortButton.addEventListener("click", () => sendRpc({ type: "abort" }));
   el.stopButton?.addEventListener("click", () => sendRpc({ type: "abort" }));
   el.jumpToLatestButton?.addEventListener("click", () => {
     setFollowLatest(true);

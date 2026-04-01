@@ -39,7 +39,6 @@ export const state = {
 };
 
 export const el = {
-  abortButton: document.querySelector("#abort-button"),
   actionsButton: document.querySelector("#actions-button"),
   attachImageButton: document.querySelector("#attach-image-button"),
   cdCommandButton: document.querySelector("#cd-command-button"),

@@ -1,41 +1,56 @@
+/* === CSS Variables === */
 :root {
   color-scheme: dark;
-  --bg: #071018;
-  --bg-elevated: rgba(12, 18, 24, 0.94);
-  --panel: rgba(14, 22, 30, 0.92);
-  --panel-2: rgba(19, 31, 42, 0.95);
+
+  /* Borders */
   --border: rgba(135, 174, 204, 0.18);
   --border-strong: rgba(135, 174, 204, 0.3);
+  --border-tool: rgba(127, 212, 255, 0.12);
+
+  /* Text colors */
   --text: #edf5ff;
   --muted: #9db0c4;
   --dim: #74879a;
   --accent: #7fd4ff;
-  --accent-2: #4ea9da;
+
+  /* Semantic colors */
   --success: #7ce0aa;
   --warning: #ffd27f;
   --danger: #ff8d8d;
+
+  /* Surfaces */
+  --surface-inset: rgba(7, 12, 16, 0.96);
+  --panel: rgba(14, 22, 30, 0.92);
+  --shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+
+  /* Theme-swappable (via THEME_CSS_VARIABLES) */
   --md-code: var(--accent);
   --md-code-block: var(--text);
   --md-code-block-border: var(--border-strong);
-  --assistant-bg: rgba(14, 29, 42, 0.9);
-  --user-bg: rgba(31, 48, 63, 0.95);
-  --tool-bg: rgba(19, 31, 42, 0.85);
-  --system-bg: rgba(14, 20, 28, 0.86);
-  --radius: 18px;
-  --shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+
+  /* Dynamic (set by JS) */
   --composer-reserve: 11.5rem;
+
+  /* Typography scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
 }
 
+/* === Base Reset === */
 * {
   box-sizing: border-box;
+}
+
+html {
+  font-size: 15px;
+  scroll-padding-bottom: calc(var(--composer-reserve) + env(safe-area-inset-bottom) + 1rem);
 }
 
 html,
 body {
   min-height: 100%;
   margin: 0;
-  background:
-    radial-gradient(circle at top, rgba(53, 96, 133, 0.22) 0%, rgba(7, 16, 24, 0.98) 44%),
+  background: radial-gradient(circle at top, rgba(53, 96, 133, 0.22) 0%, rgba(7, 16, 24, 0.98) 44%),
     linear-gradient(180deg, #09121a 0%, #070d13 100%);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -45,24 +60,21 @@ body {
   padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
 }
 
-html {
-  scroll-padding-bottom: calc(var(--composer-reserve) + env(safe-area-inset-bottom) + 1rem);
-}
-
 button,
 input,
 textarea {
   font: inherit;
 }
 
+/* === Buttons === */
 button {
   appearance: none;
   border: 1px solid var(--border-strong);
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  border-radius: 0.875rem;
+  background: linear-gradient(180deg, var(--accent), #4ea9da);
   color: #071018;
   font-weight: 700;
-  padding: 0.8rem 1rem;
+  padding: 0.75rem 1rem;
 }
 
 button.secondary {
@@ -80,25 +92,27 @@ button:disabled {
   opacity: 0.45;
 }
 
+/* === Form Elements === */
 input,
 textarea {
   width: 100%;
   background: rgba(7, 12, 16, 0.95);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  padding: 1rem;
 }
 
 textarea {
   resize: none;
 }
 
+/* === Code / Mono === */
 pre,
 code,
 .mono {
   font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 
 pre {
@@ -108,28 +122,32 @@ pre {
   line-height: 1.42;
 }
 
+/* === Utility === */
 .hidden {
   display: none !important;
 }
 
+/* === Layout === */
 .app-shell {
   max-width: 980px;
   margin: 0 auto;
-  padding: 4.7rem 0.95rem calc(var(--composer-reserve) + env(safe-area-inset-bottom) + 1rem);
+  padding: 4.7rem 1rem calc(var(--composer-reserve) + env(safe-area-inset-bottom) + 1rem);
 }
 
+/* === Sidebar Toggle === */
 .sidebar-toggle-button {
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 0.9rem);
-  left: 0.9rem;
+  top: calc(env(safe-area-inset-top) + 1rem);
+  left: 1rem;
   z-index: 18;
   border-radius: 999px;
-  padding: 0.72rem 0.95rem;
+  padding: 0.75rem 1rem;
   background: rgba(20, 32, 42, 0.96);
   color: var(--text);
   box-shadow: var(--shadow);
 }
 
+/* === Header === */
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -141,9 +159,10 @@ pre {
 .topbar h1,
 .modal-card h2,
 .sheet-card h2 {
-  margin: 0.16rem 0 0;
+  margin: 0.25rem 0 0;
 }
 
+/* === Text Utilities === */
 .subtitle,
 .label,
 .modal-copy,
@@ -154,15 +173,16 @@ pre {
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
 }
 
 .subtitle,
 .modal-copy {
-  margin: 0.45rem 0 0;
+  margin: 0.5rem 0 0;
   line-height: 1.4;
 }
 
+/* === Pills & Chips === */
 .status-pill,
 .command-chip,
 .inline-pill,
@@ -171,8 +191,8 @@ pre {
   border: 1px solid var(--border-strong);
   background: rgba(16, 31, 42, 0.88);
   color: var(--accent);
-  padding: 0.45rem 0.78rem;
-  font-size: 0.88rem;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--text-sm);
 }
 
 .status-pill.offline {
@@ -181,6 +201,7 @@ pre {
   background: rgba(255, 141, 141, 0.12);
 }
 
+/* === Cards & Panels === */
 .status-card,
 .banner,
 .widget-card,
@@ -190,15 +211,8 @@ pre {
 .sheet-section {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 1rem;
   box-shadow: var(--shadow);
-}
-
-.status-card,
-.banner,
-.widget-card,
-.sheet-section {
-  padding: 1rem;
 }
 
 .status-card,
@@ -207,20 +221,36 @@ pre {
   margin-bottom: 1rem;
 }
 
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem 1rem;
+/* === Status Card === */
+.status-card {
+  padding: 0.75rem;
 }
 
-.value {
-  margin-top: 0.22rem;
-  word-break: break-word;
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
 }
 
+.status-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  font-size: var(--text-sm);
+}
+
+.status-label {
+  color: var(--dim);
+}
+
+.status-value {
+  color: var(--text);
+}
+
+/* === Buttons Row === */
 .button-row {
   display: flex;
-  gap: 0.7rem;
+  gap: 0.75rem;
   margin-top: 1rem;
   flex-wrap: wrap;
 }
@@ -230,7 +260,7 @@ pre {
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.2rem;
+  padding-bottom: 0.25rem;
 }
 
 .button-row.compact > * {
@@ -238,6 +268,7 @@ pre {
   white-space: nowrap;
 }
 
+/* === Banner === */
 .banner {
   color: var(--warning);
 }
@@ -248,14 +279,14 @@ pre {
   background: rgba(70, 18, 18, 0.4);
 }
 
+/* === Widget === */
 .widget-stack {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.75rem;
 }
 
 .widget-card h3 {
   margin: 0 0 0.5rem;
-  font-size: 0.94rem;
 }
 
 .widget-card ul {
@@ -264,66 +295,67 @@ pre {
   color: var(--muted);
 }
 
+/* === Command Strip === */
 .command-strip {
   display: flex;
-  gap: 0.55rem;
+  gap: 0.5rem;
   overflow-x: auto;
   padding-bottom: 0.25rem;
 }
 
 .command-chip {
   min-width: max-content;
-  padding: 0.6rem 0.8rem;
-  font-size: 0.82rem;
+  padding: 0.5rem 0.75rem;
 }
 
 .command-chip .source {
   color: var(--dim);
-  margin-left: 0.4rem;
+  margin-left: 0.5rem;
 }
 
+/* === Messages === */
 .messages {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.75rem;
   min-height: 42vh;
-  padding-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
 }
 
 .message {
-  padding: 0.95rem 1rem;
+  padding: 1rem;
 }
 
 .message.user {
-  background: var(--user-bg);
-  margin-left: 1.8rem;
+  background: rgba(31, 48, 63, 0.95);
+  margin-left: 1.75rem;
 }
 
 .message.assistant {
-  background: var(--assistant-bg);
-  margin-right: 0.6rem;
+  background: rgba(14, 29, 42, 0.9);
+  margin-right: 0.5rem;
 }
 
 .message.tool {
-  background: var(--tool-bg);
+  background: rgba(19, 31, 42, 0.85);
 }
 
 .message.system,
 .message.custom,
 .message.summary {
-  background: var(--system-bg);
+  background: rgba(14, 20, 28, 0.86);
 }
 
 .message-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 0.65rem;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .role-badge {
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--accent);
 }
@@ -334,11 +366,11 @@ pre {
 
 .meta {
   color: var(--dim);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
 }
 
 .message-body {
-  line-height: 1.46;
+  line-height: 1.5;
 }
 
 .message-body p {
@@ -358,24 +390,25 @@ pre {
 .message-body code,
 .modal-copy code {
   color: var(--md-code);
-  background: rgba(7, 12, 16, 0.96);
+  background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.08rem 0.38rem;
+  border-radius: 0.5rem;
+  padding: 0.1rem 0.375rem;
   font-size: 0.95em;
 }
 
+/* === Code Block === */
 .message-code-block {
   margin: 0.75rem 0 0;
-  padding: 0.85rem 0.95rem;
-  background: rgba(7, 12, 16, 0.96);
+  padding: 0.75rem;
+  background: var(--surface-inset);
   color: var(--md-code-block);
   border: 1px solid var(--md-code-block-border);
-  border-radius: 14px;
+  border-radius: 0.5rem;
   overflow-x: auto;
   white-space: pre;
   word-break: normal;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 
 .message-body > .message-code-block:first-child {
@@ -395,6 +428,7 @@ pre {
   padding-left: 1.2rem;
 }
 
+/* === Details/Summary === */
 .message-body details {
   display: inline-block;
   margin-top: 0.75rem;
@@ -405,7 +439,7 @@ pre {
   display: block;
   margin-right: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 0.7rem;
+  padding-top: 0.75rem;
 }
 
 .message-body summary {
@@ -413,12 +447,12 @@ pre {
   color: var(--dim);
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.65rem;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
   border-radius: 999px;
   border: 1px solid var(--border-strong);
   background: rgba(16, 31, 42, 0.88);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   user-select: none;
   list-style: none;
 }
@@ -429,12 +463,12 @@ pre {
 
 .message-body summary::after {
   content: '▸';
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
 .message-body details[open] > summary {
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.75rem;
   background: rgba(20, 35, 46, 0.95);
   color: var(--muted);
 }
@@ -448,6 +482,7 @@ pre {
   margin-top: 0;
 }
 
+/* === User Message Content === */
 .user-message-inline-content {
   display: grid;
   gap: 0.75rem;
@@ -462,10 +497,10 @@ pre {
   align-self: flex-start;
   width: fit-content;
   max-width: min(100%, 20rem);
-  border-radius: 16px;
+  border-radius: 1rem;
   overflow: hidden;
   border: 1px solid rgba(127, 212, 255, 0.14);
-  background: rgba(7, 12, 16, 0.92);
+  background: var(--surface-inset);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 
@@ -476,9 +511,10 @@ pre {
   max-height: min(40vh, 18rem);
   height: auto;
   object-fit: contain;
-  background: rgba(7, 12, 16, 0.92);
+  background: var(--surface-inset);
 }
 
+/* === Tool Panel (wrapper) === */
 .message-body .tool-panel {
   margin-top: 0;
   padding: 0;
@@ -488,7 +524,7 @@ pre {
 }
 
 .message-body .tool-panel summary {
-  border-radius: 6px;
+  border-radius: 0.5rem;
   color: inherit;
   list-style: none;
 }
@@ -509,7 +545,6 @@ pre {
   flex: 0 0 auto;
   align-self: center;
   color: var(--muted);
-  font-size: 0.9rem;
 }
 
 .tool-panel[open] > .tool-panel-summary::after {
@@ -523,16 +558,15 @@ pre {
 
 .tool-panel-eyebrow {
   color: var(--accent);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .tool-panel-path {
-  margin-top: 0.24rem;
+  margin-top: 0.25rem;
   color: var(--text);
-  font-size: 0.92rem;
   word-break: break-word;
 }
 
@@ -540,16 +574,16 @@ pre {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .tool-panel-badge {
-  border-radius: 4px;
+  border-radius: 0.125rem;
   border: 1px solid var(--border-strong);
   background: rgba(16, 31, 42, 0.88);
   color: var(--muted);
-  padding: 0.15rem 0.4rem;
-  font-size: 0.72rem;
+  padding: 0.125rem 0.375rem;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -577,9 +611,10 @@ pre {
 
 .tool-panel-note {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
 }
 
+/* === Tool Block Expand/Collapse === */
 .tool-preview-overflow {
   display: none;
 }
@@ -601,9 +636,9 @@ pre {
   margin-top: 0.25rem;
   background: transparent;
   border: 1px dashed var(--border);
-  border-radius: 6px;
+  border-radius: 0.5rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   cursor: pointer;
   text-align: left;
 }
@@ -618,23 +653,31 @@ pre {
   color: var(--text);
 }
 
+/* === Shared Tool Block Styles === */
 .tool-diff-block,
-.tool-code-block {
+.tool-code-block,
+.tool-terminal-block,
+.tool-image-wrap,
+.tool-match-group {
   overflow-x: auto;
-  border-radius: 6px;
-  border: 1px solid rgba(127, 212, 255, 0.12);
-  background: rgba(7, 12, 16, 0.96);
-  font-size: 0.82rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-tool);
+  background: var(--surface-inset);
+}
+
+/* === Diff Block === */
+.tool-diff-block {
+  font-size: var(--text-sm);
 }
 
 .tool-diff-line,
 .tool-code-line {
   display: grid;
-  grid-template-columns: minmax(2.6rem, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(2.5rem, auto) minmax(0, 1fr);
   gap: 0.75rem;
   align-items: start;
   min-width: max-content;
-  padding: 0.1rem 0.5rem;
+  padding: 0.125rem 0.5rem;
 }
 
 .tool-diff-line + .tool-diff-line,
@@ -677,68 +720,56 @@ pre {
   color: rgba(237, 245, 255, 0.78);
 }
 
+/* === Code Block === */
+.tool-code-block {
+  font-size: var(--text-sm);
+}
+
 .tool-code-content {
   color: var(--md-code-block);
 }
 
-.tool-terminal-block {
-  overflow-x: auto;
-  border-radius: 6px;
-  border: 1px solid rgba(127, 212, 255, 0.12);
-  background: rgba(7, 12, 16, 0.96);
-}
-
+/* === Terminal Block === */
 .tool-terminal-block > pre {
   margin: 0;
-  padding: 0.8rem 0.9rem;
+  padding: 0.75rem;
   color: #d7e9ff;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 
 .tool-terminal-block > pre + pre {
-  border-top: 1px solid rgba(127, 212, 255, 0.12);
+  border-top: 1px solid var(--border-tool);
 }
 
+/* === Markdown Preview === */
 .tool-markdown-preview {
-  padding: 0.1rem 0;
+  padding: 0.125rem 0;
 }
 
 .tool-markdown-preview .message-code-block {
-  margin-top: 0.65rem;
+  margin-top: 0.75rem;
 }
 
-.tool-image-wrap {
-  overflow: hidden;
-  border-radius: 14px;
-  border: 1px solid rgba(127, 212, 255, 0.12);
-  background: rgba(7, 12, 16, 0.96);
-}
-
+/* === Image Preview === */
 .tool-image-preview {
   display: block;
   width: 100%;
   max-height: 52vh;
   object-fit: contain;
-  background: rgba(7, 12, 16, 0.96);
+  background: var(--surface-inset);
 }
 
+/* === Match Groups === */
 .tool-match-groups,
 .tool-entry-list {
   display: grid;
-  gap: 0.55rem;
-}
-
-.tool-match-group {
-  border-radius: 14px;
-  border: 1px solid rgba(127, 212, 255, 0.12);
-  background: rgba(7, 12, 16, 0.96);
-  overflow: hidden;
+  gap: 0.5rem;
 }
 
 .tool-match-group-header {
-  padding: 0.62rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   color: var(--accent);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   word-break: break-word;
@@ -748,9 +779,9 @@ pre {
 .tool-entry-row {
   display: grid;
   grid-template-columns: minmax(2.2rem, auto) minmax(0, 1fr);
-  gap: 0.7rem;
+  gap: 0.75rem;
   align-items: start;
-  padding: 0.18rem 0.75rem;
+  padding: 0.25rem 0.75rem;
 }
 
 .tool-match-line + .tool-match-line,
@@ -792,73 +823,52 @@ pre {
   color: var(--accent);
 }
 
-@media (max-width: 560px) {
-  .tool-panel-summary {
-    flex-direction: column;
-  }
-
-  .tool-panel-badges {
-    justify-content: flex-start;
-  }
-
-  .tool-diff-line,
-  .tool-code-line,
-  .tool-match-line,
-  .tool-entry-row {
-    gap: 0.55rem;
-    padding: 0.16rem 0.55rem;
-  }
-
-  .tool-match-group-header,
-  .tool-terminal-block > pre {
-    padding-left: 0.65rem;
-    padding-right: 0.65rem;
-  }
-}
-
+/* === Details Content === */
 .detail-content,
 .detail-pre {
-  margin-top: 0.7rem;
+  margin-top: 0.75rem;
 }
 
 .detail-pre {
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
 }
 
 .detail-markdown > .message-code-block:first-child {
   margin-top: 0;
 }
 
+/* === Thinking === */
 .thinking-body {
   font-style: italic;
   color: var(--muted);
 }
 
+/* === Composer === */
 .composer-wrap {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0 0.95rem calc(env(safe-area-inset-bottom) + 0.75rem);
+  padding: 0 1rem calc(env(safe-area-inset-bottom) + 0.75rem);
   background: linear-gradient(180deg, rgba(7, 13, 19, 0) 0%, rgba(7, 13, 19, 0.94) 26%, rgba(7, 13, 19, 0.99) 100%);
 }
 
 .composer {
   max-width: 980px;
   margin: 0 auto;
-  background: var(--bg-elevated);
+  background: rgba(12, 18, 24, 0.94);
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: 1rem;
   box-shadow: var(--shadow);
-  padding: 0.82rem;
+  padding: 0.75rem;
 }
 
 .composer-input-row {
   display: flex;
   align-items: flex-end;
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
 .composer textarea {
@@ -879,73 +889,75 @@ pre {
 .composer-inline-button {
   flex: 0 0 auto;
   min-height: 52px;
-  border-radius: 16px;
+  border-radius: 1rem;
 }
 
 .stop-button {
   min-width: 72px;
-  padding: 0.7rem 0.95rem;
+  padding: 0.75rem 1rem;
 }
 
 .send-button {
   min-width: 48px;
-  padding: 0.7rem 0.9rem;
-  font-size: 1.35rem;
-  line-height: 1;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* === Attachment Strip === */
 .attachment-strip {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.5rem;
   overflow-x: auto;
-  margin-bottom: 0.7rem;
-  padding-bottom: 0.15rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.125rem;
 }
 
 .composer > .command-strip {
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.75rem;
 }
 
 .attachment-chip {
-  min-width: 152px;
+  min-width: 150px;
   max-width: 220px;
-  background: rgba(15, 24, 34, 0.96);
+  background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 0.55rem;
+  border-radius: 0.875rem;
+  padding: 0.5rem;
 }
 
 .attachment-chip img {
   width: 100%;
   height: 92px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 0.5rem;
   display: block;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.5rem;
 }
 
 .attachment-chip-header {
   display: flex;
   justify-content: space-between;
-  gap: 0.6rem;
+  gap: 0.5rem;
   align-items: flex-start;
 }
 
 .attachment-chip-token {
   display: inline-flex;
   align-items: center;
-  padding: 0.14rem 0.45rem;
+  padding: 0.125rem 0.5rem;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.04);
   color: var(--accent);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   line-height: 1.25;
 }
 
 .attachment-chip-name {
-  margin-top: 0.35rem;
-  font-size: 0.8rem;
+  margin-top: 0.375rem;
+  font-size: var(--text-xs);
   color: var(--text);
   word-break: break-word;
 }
@@ -955,25 +967,25 @@ pre {
   background: transparent;
   color: var(--danger);
   padding: 0;
-  font-size: 0.95rem;
 }
 
 .attachment-chip-meta {
   color: var(--dim);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   margin-top: 0.25rem;
 }
 
+/* === Composer Actions === */
 .composer-actions {
   display: flex;
   justify-content: flex-start;
   gap: 0.5rem;
-  margin-top: 0.72rem;
+  margin-top: 0.75rem;
   flex-wrap: nowrap;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.15rem;
+  padding-bottom: 0.125rem;
 }
 
 .composer-actions > * {
@@ -983,17 +995,17 @@ pre {
 
 .composer-actions button {
   min-height: 40px;
-  padding: 0.54rem 0.82rem;
-  border-radius: 13px;
-  font-size: 0.92rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.875rem;
 }
 
+/* === Quota Row === */
 .quota-row {
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.58rem;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
   min-width: 0;
 }
 
@@ -1001,7 +1013,7 @@ pre {
 .quota-pills-row {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   min-width: 0;
 }
 
@@ -1016,19 +1028,19 @@ pre {
   flex: 1 1 auto;
   justify-content: flex-end;
   flex-wrap: wrap;
-  row-gap: 0.35rem;
+  row-gap: 0.375rem;
 }
 
 .quota-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.32rem 0.56rem;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 999px;
   border: 1px solid var(--border-strong);
   background: rgba(19, 31, 42, 0.88);
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -1059,6 +1071,7 @@ pre {
   color: var(--danger);
 }
 
+/* === Modal === */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1088,7 +1101,7 @@ pre {
 .sheet-list,
 .model-list {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.75rem;
 }
 
 .option-list button,
@@ -1100,8 +1113,8 @@ pre {
 
 .sheet-filter {
   display: grid;
-  gap: 0.45rem;
-  margin-bottom: 0.85rem;
+  gap: 0.5rem;
+  margin-bottom: 0.875rem;
 }
 
 .sheet-select {
@@ -1110,8 +1123,8 @@ pre {
   background: rgba(7, 12, 16, 0.95);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 0.8rem 0.95rem;
+  border-radius: 0.875rem;
+  padding: 0.75rem;
 }
 
 .sheet-card {
@@ -1138,28 +1151,28 @@ pre {
 
 .sheet-content {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.875rem;
 }
 
 .sheet-section h3 {
   margin: 0 0 0.75rem;
-  font-size: 1rem;
 }
 
 .sheet-actions {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.75rem;
 }
 
 .sheet-action-row {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
+/* === Stats === */
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
 .stat-chip {
@@ -1173,14 +1186,15 @@ pre {
   color: var(--accent);
 }
 
+/* === Jump to Latest === */
 .jump-to-latest-button {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--composer-reserve) - 0.35rem);
+  bottom: calc(var(--composer-reserve) - 0.375rem);
   transform: translateX(-50%);
   z-index: 20;
   min-width: 3.2rem;
-  padding: 0.82rem;
+  padding: 0.75rem;
   border-radius: 999px;
   background: rgba(20, 32, 42, 0.96);
   color: var(--text);
@@ -1190,6 +1204,7 @@ pre {
   backdrop-filter: blur(10px);
 }
 
+/* === Toast === */
 .toast-host {
   position: fixed;
   top: calc(env(safe-area-inset-top) + 0.75rem);
@@ -1198,23 +1213,48 @@ pre {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.5rem;
   pointer-events: none;
   z-index: 40;
 }
 
 .toast {
   max-width: min(92vw, 560px);
-  padding: 0.8rem 1rem;
+  padding: 0.75rem 1rem;
   background: rgba(16, 24, 33, 0.98);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 0.875rem;
   box-shadow: var(--shadow);
 }
 
 .toast.error {
   color: var(--danger);
   border-color: rgba(255, 141, 141, 0.3);
+}
+
+/* === Responsive === */
+@media (max-width: 560px) {
+  .tool-panel-summary {
+    flex-direction: column;
+  }
+
+  .tool-panel-badges {
+    justify-content: flex-start;
+  }
+
+  .tool-diff-line,
+  .tool-code-line,
+  .tool-match-line,
+  .tool-entry-row {
+    gap: 0.5rem;
+    padding: 0.125rem 0.5rem;
+  }
+
+  .tool-match-group-header,
+  .tool-terminal-block > pre {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
 }
 
 @media (max-width: 767px) {
@@ -1225,17 +1265,16 @@ pre {
 
 @media (min-width: 768px) {
   .app-shell {
-    padding-left: 1.2rem;
-    padding-right: 1.2rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
 
-  .status-grid,
   .stat-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .composer-wrap {
-    padding-left: 1.2rem;
-    padding-right: 1.2rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
 }

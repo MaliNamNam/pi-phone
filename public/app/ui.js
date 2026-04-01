@@ -293,12 +293,10 @@ function updateComposerState() {
   const streaming = Boolean(state.status?.isStreaming || state.snapshotState?.isStreaming);
   const sendLabel = streaming ? "Queue message" : "Send message";
 
-  el.abortButton.disabled = !streaming;
   if (el.stopButton) {
     el.stopButton.disabled = !streaming;
     el.stopButton.classList.toggle("hidden", !streaming);
   }
-  el.sendButton.textContent = ">";
   el.sendButton.setAttribute("aria-label", sendLabel);
   el.sendButton.setAttribute("title", sendLabel);
   el.steerButton.classList.toggle("hidden", !streaming);
