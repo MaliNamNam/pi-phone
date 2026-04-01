@@ -488,6 +488,7 @@ pre {
 }
 
 .message-body .tool-panel summary {
+  border-radius: 6px;
   color: inherit;
   list-style: none;
 }
