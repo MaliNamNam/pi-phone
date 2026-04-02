@@ -95,7 +95,7 @@ button:disabled {
 }
 
 /* === Form Elements === */
-input,
+input:not([type="checkbox"]),
 textarea {
   width: 100%;
   background: rgba(7, 12, 16, 0.95);
@@ -134,7 +134,7 @@ pre {
 .app-shell {
   max-width: 980px;
   margin: 0 auto;
-  padding: 4.7rem 1rem calc(var(--composer-reserve) + env(safe-area-inset-bottom) + 1rem);
+  padding: 1rem 1rem calc(var(--composer-reserve) + env(safe-area-inset-bottom) + 1rem);
 }
 
 /* === Sidebar Toggle === */
