@@ -1,6 +1,7 @@
 import { addAttachments, clearAttachments, removeAttachment, renderAttachmentStrip, syncAttachmentsWithPrompt } from "./attachments.js";
 import { renderCommandSuggestions } from "./autocomplete-controller.js";
 import { applyAutocompleteItem, submitPrompt } from "./commands.js";
+import { ENTER_SENDS_STORAGE_KEY } from "./constants.js";
 import { el, state } from "./state.js";
 import { updateMessageCaps } from "./messages.js";
 import { handleSheetButtonAction } from "./sheet-actions.js";
@@ -19,11 +20,30 @@ import {
 } from "./ui.js";
 import { insertCdCommand } from "./autocomplete.js";
 
+function syncEnterSends(enabled) {
+  state.enterSends = enabled;
+  el.enterSendsCheckbox.checked = enabled;
+  el.promptInput.setAttribute("enterkeyhint", enabled ? "send" : "enter");
+  localStorage.setItem(ENTER_SENDS_STORAGE_KEY, String(enabled));
+}
+
 export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
+  // Initialize "Enter sends" from persisted state
+  syncEnterSends(state.enterSends);
+
   el.promptInput.addEventListener("input", () => {
     syncAttachmentsWithPrompt();
     autoResizeTextarea();
     renderCommandSuggestions();
+  });
+
+  el.promptInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const shouldSend = state.enterSends ? !event.shiftKey : event.shiftKey;
+    if (shouldSend) {
+      event.preventDefault();
+      submitPrompt();
+    }
   });
 
   el.promptInput.addEventListener("click", () => {
@@ -47,11 +67,20 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
   }
 
   window.addEventListener("resize", scheduleComposerLayoutSync, { passive: true });
-  window.visualViewport?.addEventListener("resize", scheduleComposerLayoutSync, { passive: true });
+  window.visualViewport?.addEventListener("resize", () => {
+    scheduleComposerLayoutSync();
+    // Re-scroll to bottom when keyboard shows/hides if following latest
+    if (state.followLatest) {
+      scrollMessagesToBottom({ force: true, behavior: "auto" });
+    }
+  }, { passive: true });
 
   const noteUserScrollIntent = () => {
     state.lastUserScrollIntentAt = Date.now();
   };
+
+  let lastScrollY = window.scrollY;
+  const SCROLL_UP_THRESHOLD = 200;
 
   const syncFollowLatestOnScroll = () => {
     const now = Date.now();
@@ -60,9 +89,22 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
     setFollowLatest(isNearBottom());
   };
 
+  const syncJumpToTopOnScroll = () => {
+    const currentY = window.scrollY;
+    const scrollingUp = currentY < lastScrollY;
+    const farFromTop = currentY > SCROLL_UP_THRESHOLD;
+    lastScrollY = currentY;
+    if (el.jumpToTopButton) {
+      el.jumpToTopButton.classList.toggle("hidden", !(scrollingUp && farFromTop));
+    }
+  };
+
   window.addEventListener("wheel", noteUserScrollIntent, { passive: true });
   window.addEventListener("touchmove", noteUserScrollIntent, { passive: true });
-  window.addEventListener("scroll", syncFollowLatestOnScroll, { passive: true });
+  window.addEventListener("scroll", () => {
+    syncFollowLatestOnScroll();
+    syncJumpToTopOnScroll();
+  }, { passive: true });
 
   el.refreshButton.addEventListener("click", refreshAll);
   el.stopButton?.addEventListener("click", () => sendRpc({ type: "abort" }));
@@ -78,6 +120,12 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
   });
   el.steerButton.addEventListener("click", () => submitPrompt({ steer: true }));
   el.sendButton.addEventListener("click", () => submitPrompt());
+  el.enterSendsCheckbox.addEventListener("change", (event) => {
+    syncEnterSends(event.target.checked);
+  });
+  el.jumpToTopButton?.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
   el.sheetCloseButton.addEventListener("click", closeSheet);
   el.attachImageButton.addEventListener("click", () => el.imageInput.click());
   el.imageInput.addEventListener("change", (event) => {

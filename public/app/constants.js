@@ -17,6 +17,7 @@ export const LOCAL_COMMAND_NAMES = new Set(LOCAL_COMMAND_DEFINITIONS.map((comman
 export const COMMAND_CATEGORY_ORDER = ["local", "extension", "prompt", "skill"];
 export const AUTOCOMPLETE_DELIMITERS = new Set([" ", "\t", "\n", '"', "'", "="]);
 export const TOKEN_STORAGE_KEY = "pi-phone-token";
+export const ENTER_SENDS_STORAGE_KEY = "pi-phone-enter-sends";
 
 export const THEME_CSS_VARIABLES = {
   mdCode: "--md-code",

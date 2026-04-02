@@ -1,4 +1,4 @@
-import { TOKEN_STORAGE_KEY } from "./constants.js";
+import { ENTER_SENDS_STORAGE_KEY, TOKEN_STORAGE_KEY } from "./constants.js";
 
 export const state = {
   health: null,
@@ -35,6 +35,7 @@ export const state = {
   nextAttachmentTokenId: 1,
   toolPanelOpen: new Map(),
   messageExpanded: new Set(),
+  enterSends: localStorage.getItem(ENTER_SENDS_STORAGE_KEY) !== "false",
 };
 
 export const el = {
@@ -50,6 +51,7 @@ export const el = {
   imageInput: document.querySelector("#image-input"),
   insertCommandButton: document.querySelector("#insert-command-button"),
   jumpToLatestButton: document.querySelector("#jump-to-latest-button"),
+  jumpToTopButton: document.querySelector("#jump-to-top-button"),
   loginModal: document.querySelector("#login-modal"),
   messages: document.querySelector("#messages"),
   modelValue: document.querySelector("#model-value"),
@@ -82,4 +84,5 @@ export const el = {
   uiModalOptions: document.querySelector("#ui-modal-options"),
   uiModalTitle: document.querySelector("#ui-modal-title"),
   widgetStack: document.querySelector("#widget-stack"),
+  enterSendsCheckbox: document.querySelector("#enter-sends-checkbox"),
 };

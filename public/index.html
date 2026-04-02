@@ -69,7 +69,7 @@
               autocomplete="off"
               autocapitalize="sentences"
               spellcheck="true"
-              enterkeyhint="enter"
+              enterkeyhint="send"
             ></textarea>
             <button id="stop-button" class="composer-inline-button stop-button danger hidden" aria-label="Stop response" title="Stop response">Stop</button>
             <button id="send-button" class="composer-inline-button send-button" aria-label="Send message" title="Send message">
@@ -84,6 +84,10 @@
             <button id="insert-command-button" class="secondary">Commands</button>
             <button id="cd-command-button" class="secondary">/cd</button>
             <button id="steer-button" class="secondary hidden">Steer</button>
+            <label class="checkbox-label composer-enter-sends">
+              <input type="checkbox" id="enter-sends-checkbox" />
+              <span>Enter sends</span>
+            </label>
           </div>
           <div id="quota-row" class="quota-row hidden" aria-live="polite">
             <div id="quota-meta-row" class="quota-meta-row hidden">
@@ -135,6 +139,7 @@
       </div>
     </div>
 
+    <button id="jump-to-top-button" class="jump-to-top-button hidden secondary" type="button" aria-label="Jump to top">▴</button>
     <button id="jump-to-latest-button" class="jump-to-latest-button hidden secondary" type="button" aria-label="Jump to latest message">▾</button>
     <div id="toast-host" class="toast-host"></div>
 
