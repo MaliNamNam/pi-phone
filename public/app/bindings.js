@@ -23,7 +23,9 @@ import { insertCdCommand } from "./autocomplete.js";
 function syncEnterSends(enabled) {
   state.enterSends = enabled;
   el.enterSendsCheckbox.checked = enabled;
-  el.promptInput.setAttribute("enterkeyhint", enabled ? "send" : "enter");
+  // Mobile: always show "enter" (Return) key since Enter=newline, Shift+Enter=send
+  const isMobile = window.matchMedia("(pointer: coarse) and (hover: none)").matches;
+  el.promptInput.setAttribute("enterkeyhint", (enabled && !isMobile) ? "send" : "enter");
   localStorage.setItem(ENTER_SENDS_STORAGE_KEY, String(enabled));
 }
 
