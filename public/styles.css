@@ -194,8 +194,9 @@ pre {
   border: 1px solid var(--border-strong);
   background: rgba(16, 31, 42, 0.88);
   color: var(--accent);
-  padding: 0.5rem 0.75rem;
-  font-size: var(--text-sm);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--text-xs);
+  margin-left: 0.5rem;
 }
 
 .status-pill.offline {
