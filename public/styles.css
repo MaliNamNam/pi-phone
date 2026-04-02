@@ -1277,9 +1277,8 @@ pre {
 /* === Jump to Latest === */
 .jump-to-latest-button {
   position: fixed;
-  left: 50%;
+  right: 1rem;
   bottom: calc(var(--composer-reserve) - 0.375rem);
-  transform: translateX(-50%);
   z-index: 20;
   min-width: 3.2rem;
   padding: 0.75rem;
