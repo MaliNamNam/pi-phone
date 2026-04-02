@@ -502,7 +502,6 @@ pre {
 .message-body details[open] {
   display: block;
   margin-right: 0;
-  padding-top: 0.75rem;
 }
 
 .message-body summary {
@@ -579,7 +578,8 @@ pre {
 
 /* === Tool Panel (wrapper) === */
 .message-body .tool-panel {
-  margin-top: 0;
+  display: block;
+  margin: 0.75rem 0 0 0;
   padding: 0;
   background: transparent;
   border: none;

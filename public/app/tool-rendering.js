@@ -514,7 +514,7 @@ function renderBashToolContent(item) {
   if (item.status === "running" || item.live) badges.push(renderToolBadge("running", "accent"));
   else if (item.status === "error") badges.push(renderToolBadge("failed", "removed"));
   else if (item.status === "cancelled") badges.push(renderToolBadge("cancelled", "neutral"));
-  else badges.push(renderToolBadge("done", "added"));
+  // Skip "done" badge - header already shows status pill
   if (typeof item.args?.timeout === "number") badges.push(renderToolBadge(`${item.args.timeout}s timeout`, "neutral"));
   if (details?.fullOutputPath) badges.push(renderToolBadge("full log saved", "neutral"));
 
