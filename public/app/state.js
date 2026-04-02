@@ -65,6 +65,7 @@ export const el = {
   quotaSecondary: document.querySelector("#quota-secondary"),
   refreshButton: document.querySelector("#refresh-button"),
   sendButton: document.querySelector("#send-button"),
+  sessionNameEl: document.querySelector("#session-name"),
   stopButton: document.querySelector("#stop-button"),
   serverValue: document.querySelector("#server-value"),
   sheetCloseButton: document.querySelector("#sheet-close-button"),

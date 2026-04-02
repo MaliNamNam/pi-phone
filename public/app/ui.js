@@ -319,6 +319,9 @@ function flushHeader() {
   const status = state.status || state.health || {};
   applyThemePalette(status.theme || state.health?.theme || null);
   const snapshot = state.snapshotState || {};
+  const sessionName = snapshot.sessionName || "Pi Phone";
+  el.sessionNameEl.textContent = sessionName;
+  document.title = sessionName;
   el.cwdValue.textContent = status.cwd || "—";
   el.modelValue.textContent = snapshot.model?.name || snapshot.model?.id || "Default";
   el.thinkingValue.textContent = snapshot.thinkingLevel || "—";

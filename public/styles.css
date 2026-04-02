@@ -159,14 +159,17 @@ pre {
   margin-bottom: 1rem;
 }
 
-.topbar h1,
+.topbar h1 {
+  font-size: var(--text-base);
+  margin: 0.15rem 0 0;
+}
+
 .modal-card h2,
 .sheet-card h2 {
   margin: 0.25rem 0 0;
 }
 
 /* === Text Utilities === */
-.subtitle,
 .label,
 .modal-copy,
 .eyebrow {
@@ -179,7 +182,6 @@ pre {
   font-size: var(--text-xs);
 }
 
-.subtitle,
 .modal-copy {
   margin: 0.5rem 0 0;
   line-height: 1.4;
