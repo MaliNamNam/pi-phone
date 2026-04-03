@@ -7,7 +7,6 @@ export function parsePhoneStartArgs(args: string | undefined, current: PhoneConf
   let idleSpecified = false;
   let local = false;
   let cfTokenSpecified = false;
-  let passwordManagerIgnoreSpecified = false;
   let pushoverOnTunnelSpecified = false;
 
   if (!args?.trim()) {
@@ -138,7 +137,6 @@ export function parsePhoneStartArgs(args: string | undefined, current: PhoneConf
     }
 
     if (token === "--no-password-manager") {
-      passwordManagerIgnoreSpecified = true;
       next.passwordManagerIgnore = true;
       index += 1;
       continue;

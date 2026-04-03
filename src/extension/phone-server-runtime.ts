@@ -1137,7 +1137,7 @@ export class PhoneServerRuntime {
   }
 
   statusText() {
-    const url = `http://${this.config.host}:${this.config.port}`;
+    const url = this.effectiveUrl() || `http://${this.config.host}:${this.config.port}`;
     const idleMinutes = this.config.idleTimeoutMs > 0 ? `${Math.max(1, Math.round(this.config.idleTimeoutMs / 60_000))}m idle auto-stop` : "idle auto-stop disabled";
     return this.server
       ? `Pi Phone running at ${url} for ${this.config.cwd}${this.config.token ? " (token enabled)" : " (no token)"} · ${idleMinutes}`
@@ -1162,7 +1162,7 @@ export class PhoneServerRuntime {
       (key) => nextConfig[key as keyof PhoneConfig] !== this.config[key as keyof PhoneConfig],
     );
     const cfChanged = nextConfig.cfToken !== this.config.cfToken || nextConfig.cfHostname !== this.config.cfHostname;
-    if (cfChanged && child) {
+    if (cfChanged && getCloudflareTunnelInfo().active) {
       await disableCloudflareTunnel();
     }
     if (parsed.tokenSpecified) {
@@ -1274,9 +1274,7 @@ export class PhoneServerRuntime {
   async handlePhonePushover(ctx: ExtensionCommandContext) {
     this.captureCtx(ctx);
 
-    const pushoverToken = process.env.PI_PHONE_PUSHOVER_TOKEN || this.config.pushoverToken;
-    const pushoverUser = process.env.PI_PHONE_PUSHOVER_USER || this.config.pushoverUser;
-
+    const { pushoverToken, pushoverUser, token } = this.config;
     if (!pushoverToken || !pushoverUser) {
       ctx.ui.notify("Set PI_PHONE_PUSHOVER_TOKEN and PI_PHONE_PUSHOVER_USER env vars to use Pushover.", "warning");
       return;
@@ -1288,13 +1286,7 @@ export class PhoneServerRuntime {
       return;
     }
 
-    const sessionName = this.latestCtx?.sessionManager?.getSessionName?.() || null;
-    const cwd = this.config.cwd || null;
-    const extras: string[] = [];
-    if (sessionName) extras.push(`Session: ${sessionName}`);
-    if (cwd) extras.push(`Dir: ${cwd}`);
-    const extrasStr = extras.length ? ` — ${extras.join(" · ")}` : "";
-    const message = this.config.token ? `${url} — Token: ${this.config.token}${extrasStr}` : `${url}${extrasStr}`;
+    const message = this.buildPushoverMessage(url, Boolean(token));
     const result = await sendPushoverNotification(pushoverToken, pushoverUser, "Pi Phone", message, url);
 
     if (result.success) {
@@ -1304,30 +1296,32 @@ export class PhoneServerRuntime {
     }
   }
 
-  private async sendPushover(token: string, user: string, title: string, message: string, url?: string) {
-    const sessionName = this.latestCtx?.sessionManager?.getSessionName?.() || null;
-    const cwd = this.config.cwd || null;
+  private buildPushoverMessage(base: string, includeToken = false) {
     const extras: string[] = [];
+    const sessionName = this.latestCtx?.sessionManager?.getSessionName?.();
+    const cwd = this.config.cwd;
     if (sessionName) extras.push(`Session: ${sessionName}`);
     if (cwd) extras.push(`Dir: ${cwd}`);
     const extrasStr = extras.length ? ` — ${extras.join(" · ")}` : "";
-    const fullMessage = `${message}${extrasStr}`;
-    return sendPushoverNotification(token, user, title, fullMessage, url);
+    return includeToken ? `${base} — Token: ${this.config.token}${extrasStr}` : `${base}${extrasStr}`;
   }
 
   private async sendPushoverIfConfigured() {
-    const { pushoverToken, pushoverUser, pushoverOnTunnel } = this.config;
+    const { pushoverToken, pushoverUser, pushoverOnTunnel, token } = this.config;
     if (!pushoverToken || !pushoverUser || !pushoverOnTunnel) return;
 
     const url = this.effectiveUrl();
     if (!url) return;
 
-    await this.sendPushover(pushoverToken, pushoverUser, "Pi Phone", url, url);
+    const message = this.buildPushoverMessage(url, Boolean(token));
+    await sendPushoverNotification(pushoverToken, pushoverUser, "Pi Phone", message, url);
   }
 
   private notifyAccessInfo(ctx: AnyCtx) {
     const tunnel = getCloudflareTunnelInfo();
     const url = this.effectiveUrl();
+    if (!url) return;
+
     const token = this.tokenWasGenerated ? this.config.token : this.config.token ? "(set)" : null;
     const cfToken = tunnel.active && this.config.cfToken ? "CF tunnel: (set)" : null;
     const parts = [url, token ? `token: ${token}` : null, cfToken].filter(Boolean);
@@ -1350,9 +1344,6 @@ export class PhoneServerRuntime {
   }
 
   handleSessionSwitch = this.handleSessionStart;
-  handleSessionFork = this.handleSessionStart;
-  handleSessionTree = this.handleSessionStart;
-  handleModelSelect = this.handleSessionStart;
 
   async handleSessionShutdown(ctx: ExtensionContext) {
     this.captureCtx(ctx);
