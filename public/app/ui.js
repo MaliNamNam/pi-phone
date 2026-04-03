@@ -5,12 +5,10 @@ import { el, state } from "./state.js";
 let composerLayoutFrame = 0;
 let messageScrollFrame = 0;
 let headerFrame = 0;
-let pendingMessageScroll = { force: false, streaming: false, behavior: "smooth" };
+let pendingMessageScroll = { force: false, streaming: false };
 
-const NEAR_BOTTOM_THRESHOLD = 120;
-const STREAM_FOLLOW_INTERVAL_MS = 320;
-const STREAM_FOLLOW_MIN_HEIGHT_DELTA = 16;
-const PROGRAMMATIC_SCROLL_GUARD_MS = 400;
+const NEAR_BOTTOM_THRESHOLD = 150;
+const PROGRAMMATIC_SCROLL_GUARD_MS = 300;
 
 export function storeToken(token) {
   if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
@@ -129,7 +127,7 @@ export function setFollowLatest(value) {
   updateJumpToLatestButton();
 }
 
-export function scrollMessagesToBottom({ force = false, streaming = false, behavior = "smooth" } = {}) {
+export function scrollMessagesToBottom({ force = false, streaming = false } = {}) {
   if (isAnyModalOpen()) {
     updateJumpToLatestButton();
     return;
@@ -138,14 +136,13 @@ export function scrollMessagesToBottom({ force = false, streaming = false, behav
   pendingMessageScroll = {
     force: pendingMessageScroll.force || force,
     streaming: pendingMessageScroll.streaming || streaming,
-    behavior,
   };
 
   if (messageScrollFrame) return;
   messageScrollFrame = requestAnimationFrame(() => {
     messageScrollFrame = 0;
     const nextScroll = pendingMessageScroll;
-    pendingMessageScroll = { force: false, streaming: false, behavior: "smooth" };
+    pendingMessageScroll = { force: false, streaming: false };
 
     if (isAnyModalOpen()) {
       updateJumpToLatestButton();
@@ -159,7 +156,9 @@ export function scrollMessagesToBottom({ force = false, streaming = false, behav
       return;
     }
 
-    if (!nextScroll.force && !state.followLatest && !isNearBottom()) {
+    // Only scroll if forced OR user has explicitly enabled followLatest.
+    // Don't auto-scroll just because user is near bottom - that causes jitter.
+    if (!nextScroll.force && !state.followLatest) {
       updateJumpToLatestButton();
       return;
     }
@@ -171,11 +170,12 @@ export function scrollMessagesToBottom({ force = false, streaming = false, behav
     const heightDelta = Math.abs(root.scrollHeight - state.lastAutoFollowHeight);
 
     if (!nextScroll.force && nextScroll.streaming) {
-      if (state.lastAutoFollowAt && now - state.lastAutoFollowAt < STREAM_FOLLOW_INTERVAL_MS) {
+      // Throttle streaming scrolls more aggressively to prevent jitter
+      if (state.lastAutoFollowAt && now - state.lastAutoFollowAt < 500) {
         updateJumpToLatestButton();
         return;
       }
-      if (state.lastAutoFollowHeight && heightDelta < STREAM_FOLLOW_MIN_HEIGHT_DELTA) {
+      if (state.lastAutoFollowHeight && heightDelta < 20) {
         updateJumpToLatestButton();
         return;
       }
@@ -184,16 +184,16 @@ export function scrollMessagesToBottom({ force = false, streaming = false, behav
     if (Math.abs(targetTop - scrollTop) < 2) {
       state.lastAutoFollowAt = now;
       state.lastAutoFollowHeight = root.scrollHeight;
-      state.followLatest = true;
       updateJumpToLatestButton();
       return;
     }
 
     state.ignoreScrollTrackingUntil = now + PROGRAMMATIC_SCROLL_GUARD_MS;
-    window.scrollTo({ top: targetTop, behavior: nextScroll.behavior });
+    // Native smooth scroll - browser auto-cancels on user touch
+    const behavior = nextScroll.force ? "smooth" : "instant";
+    window.scrollTo({ top: targetTop, behavior });
     state.lastAutoFollowAt = now;
     state.lastAutoFollowHeight = root.scrollHeight;
-    state.followLatest = true;
     updateJumpToLatestButton();
   });
 }

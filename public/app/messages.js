@@ -416,9 +416,6 @@ export function renderMessages({ forceScroll = false, streaming = hasLiveItems()
 }
 
 function flushRenderMessages({ forceScroll, streaming }) {
-  // Check if user was near bottom before content changes
-  const wasNearBottom = isNearBottom();
-
   const items = currentItems();
   if (!items.length) {
     el.messages.innerHTML = `
@@ -465,9 +462,9 @@ function flushRenderMessages({ forceScroll, streaming }) {
   renderedItemIds = nextIds;
   updateJumpToLatestButton();
 
-  // Scroll if: forced, or user was already near bottom (sticky behavior)
-  const shouldScroll = forceScroll || wasNearBottom || state.followLatest;
-  scrollMessagesToBottom({ force: shouldScroll, streaming, behavior: "smooth" });
+  // Scroll only if forced or user has explicitly enabled followLatest
+  const shouldScroll = forceScroll || state.followLatest;
+  scrollMessagesToBottom({ force: shouldScroll, streaming });
 }
 
 function updateMessageCaps() {

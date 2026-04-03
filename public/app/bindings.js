@@ -79,7 +79,7 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
     scheduleComposerLayoutSync();
     // Re-scroll to bottom when keyboard shows/hides if following latest
     if (state.followLatest) {
-      scrollMessagesToBottom({ force: true, behavior: "auto" });
+      scrollMessagesToBottom({ force: true });
     }
   }, { passive: true });
 
@@ -94,7 +94,11 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
     const now = Date.now();
     const fromUser = now - state.lastUserScrollIntentAt < 400;
     if (!fromUser && now < state.ignoreScrollTrackingUntil) return;
-    setFollowLatest(isNearBottom());
+    // Only CLEAR followLatest if user scrolled away while follow was enabled.
+    // Don't auto-enable followLatest just because user is near bottom - that causes jitter.
+    if (state.followLatest && !isNearBottom()) {
+      setFollowLatest(false);
+    }
   };
 
   const syncJumpToTopOnScroll = () => {
@@ -109,6 +113,10 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
 
   window.addEventListener("wheel", noteUserScrollIntent, { passive: true });
   window.addEventListener("touchmove", noteUserScrollIntent, { passive: true });
+  window.addEventListener("touchstart", () => {
+    // Cancel follow when user touches screen
+    if (state.followLatest) setFollowLatest(false);
+  }, { passive: true });
   window.addEventListener("scroll", () => {
     syncFollowLatestOnScroll();
     syncJumpToTopOnScroll();
@@ -118,7 +126,7 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
   el.stopButton?.addEventListener("click", () => sendRpc({ type: "abort" }));
   el.jumpToLatestButton?.addEventListener("click", () => {
     setFollowLatest(true);
-    scrollMessagesToBottom({ force: true, behavior: "smooth" });
+    scrollMessagesToBottom({ force: true });
   });
   el.actionsButton.addEventListener("click", () => openSheet("actions"));
   el.insertCommandButton.addEventListener("click", () => {
@@ -242,8 +250,8 @@ export function initializeBindings({ handleEnvelope, handleAuthFailure }) {
     }
 
     // When expanding, if user was near bottom, stay at bottom as content grows
-    if (!wasExpanded && wasNearBottom) {
-      scrollMessagesToBottom({ force: true, behavior: "auto" });
+    if (!wasExpanded && wasNearBottom && state.followLatest) {
+      scrollMessagesToBottom({ force: true });
     }
   });
 
