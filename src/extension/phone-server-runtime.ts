@@ -1343,8 +1343,6 @@ export class PhoneServerRuntime {
     this.broadcastSnapshot();
   }
 
-  handleSessionSwitch = this.handleSessionStart;
-
   async handleSessionShutdown(ctx: ExtensionContext) {
     this.captureCtx(ctx);
     await this.stopServer();

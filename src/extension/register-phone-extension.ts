@@ -48,20 +48,12 @@ export default function registerPhoneExtension(pi: ExtensionAPI) {
     await runtime.handleSessionStart(ctx);
   });
 
-  pi.on("session_switch", async (_event, ctx) => {
-    await runtime.handleSessionSwitch(ctx);
-  });
-
-  pi.on("session_fork", async (_event, ctx) => {
-    await runtime.handleSessionSwitch(ctx);
-  });
-
   pi.on("session_tree", async (_event, ctx) => {
-    await runtime.handleSessionSwitch(ctx);
+    await runtime.handleSessionStart(ctx);
   });
 
   pi.on("model_select", async (_event, ctx) => {
-    await runtime.handleSessionSwitch(ctx);
+    await runtime.handleSessionStart(ctx);
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
