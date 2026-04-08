@@ -6,12 +6,21 @@ export type PhoneConfig = {
   token: string;
   cwd: string;
   idleTimeoutMs: number;
+  cfToken: string;
+  cfHostname: string;
+  pushoverToken: string;
+  pushoverUser: string;
+  pushoverOnTunnel: boolean;
+  passwordManagerIgnore: boolean;
 };
 
 export type ParsedPhoneArgs = {
   config: PhoneConfig;
   tokenSpecified: boolean;
   idleSpecified: boolean;
+  local: boolean;
+  cfTokenSpecified: boolean;
+  pushoverOnTunnelSpecified: boolean;
 };
 
 export type PersistedPhoneRuntime = {

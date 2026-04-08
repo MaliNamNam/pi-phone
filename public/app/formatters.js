@@ -1,3 +1,42 @@
+const ANSI_TO_CSS = {
+  30: "color:#000", 31: "color:#cc6666", 32: "color:#b5bd68", 33: "color:#f0c674",
+  34: "color:#81a2be", 35: "color:#b294bb", 36: "color:#8abeb7", 37: "color:#c5c8c6",
+  90: "color:#666", 91: "color:#f66", 92: "color:#9c6", 93: "color:#fe7",
+  94: "color:#69f", 95: "color:#d8f", 96: "color:#5ee", 97: "color:#fff",
+  1: "font-weight:bold", 3: "font-style:italic", 4: "text-decoration:underline",
+};
+
+export function ansiToHtml(text = "") {
+  let result = "";
+  let open = false;
+  let i = 0;
+  const s = String(text);
+
+  while (i < s.length) {
+    if (s[i] === "\x1b" && s[i + 1] === "[") {
+      const end = s.indexOf("m", i + 2);
+      if (end === -1) { i++; continue; }
+      const codes = s.slice(i + 2, end).split(";").map(Number);
+      i = end + 1;
+
+      if (codes.includes(0) || codes.length === 0) {
+        if (open) { result += "</span>"; open = false; }
+        continue;
+      }
+
+      if (open) result += "</span>";
+      const styles = codes.map((c) => ANSI_TO_CSS[c]).filter(Boolean).join(";");
+      if (styles) { result += `<span style="${styles}">`; open = true; }
+    } else {
+      const c = s[i++];
+      result += c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c;
+    }
+  }
+
+  if (open) result += "</span>";
+  return result;
+}
+
 export function escapeHtml(text = "") {
   return String(text)
     .replaceAll("&", "&amp;")

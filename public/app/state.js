@@ -1,4 +1,4 @@
-import { TOKEN_STORAGE_KEY } from "./constants.js";
+import { ENTER_SENDS_STORAGE_KEY, TOKEN_STORAGE_KEY } from "./constants.js";
 
 export const state = {
   health: null,
@@ -8,10 +8,6 @@ export const state = {
   messages: [],
   commands: [],
   models: [],
-  sessions: [],
-  activeSessions: [],
-  activeSessionId: null,
-  tree: null,
   stats: null,
   widgets: new Map(),
   footerStatus: "",
@@ -37,13 +33,12 @@ export const state = {
   autocompleteRemoteTimer: null,
   attachments: [],
   nextAttachmentTokenId: 1,
-  lastSheetPointerAction: "",
-  lastSheetPointerActionAt: 0,
   toolPanelOpen: new Map(),
+  messageExpanded: new Set(),
+  enterSends: localStorage.getItem(ENTER_SENDS_STORAGE_KEY) !== "false",
 };
 
 export const el = {
-  abortButton: document.querySelector("#abort-button"),
   actionsButton: document.querySelector("#actions-button"),
   attachImageButton: document.querySelector("#attach-image-button"),
   cdCommandButton: document.querySelector("#cd-command-button"),
@@ -56,6 +51,7 @@ export const el = {
   imageInput: document.querySelector("#image-input"),
   insertCommandButton: document.querySelector("#insert-command-button"),
   jumpToLatestButton: document.querySelector("#jump-to-latest-button"),
+  jumpToTopButton: document.querySelector("#jump-to-top-button"),
   loginModal: document.querySelector("#login-modal"),
   messages: document.querySelector("#messages"),
   modelValue: document.querySelector("#model-value"),
@@ -69,14 +65,12 @@ export const el = {
   quotaSecondary: document.querySelector("#quota-secondary"),
   refreshButton: document.querySelector("#refresh-button"),
   sendButton: document.querySelector("#send-button"),
+  sessionNameEl: document.querySelector("#session-name"),
   stopButton: document.querySelector("#stop-button"),
   serverValue: document.querySelector("#server-value"),
-  sessionSidebarButton: document.querySelector("#session-sidebar-button"),
-  sessionValue: document.querySelector("#session-value"),
   sheetCloseButton: document.querySelector("#sheet-close-button"),
   sheetContent: document.querySelector("#sheet-content"),
   sheetModal: document.querySelector("#sheet-modal"),
-  sheetSavedSessionsButton: document.querySelector("#sheet-saved-sessions-button"),
   sheetTitle: document.querySelector("#sheet-title"),
   steerButton: document.querySelector("#steer-button"),
   streamingValue: document.querySelector("#streaming-value"),
@@ -84,7 +78,6 @@ export const el = {
   toastHost: document.querySelector("#toast-host"),
   tokenInput: document.querySelector("#token-input"),
   tokenSaveButton: document.querySelector("#token-save-button"),
-  treeBrowserButton: document.querySelector("#tree-browser-button"),
   uiModal: document.querySelector("#ui-modal"),
   uiModalButtons: document.querySelector("#ui-modal-buttons"),
   uiModalInput: document.querySelector("#ui-modal-input"),
@@ -92,4 +85,5 @@ export const el = {
   uiModalOptions: document.querySelector("#ui-modal-options"),
   uiModalTitle: document.querySelector("#ui-modal-title"),
   widgetStack: document.querySelector("#widget-stack"),
+  enterSendsCheckbox: document.querySelector("#enter-sends-checkbox"),
 };

@@ -33,8 +33,6 @@ function renderActionsSheet() {
           <button class="secondary" data-sheet-action="models">Open model picker</button>
           <button class="secondary" data-sheet-action="thinking">Open thinking picker</button>
           <button class="secondary" data-sheet-action="commands">Browse commands</button>
-          <button class="secondary" data-sheet-action="sessions">Browse sessions</button>
-          <button class="secondary" data-sheet-action="tree">Browse tree</button>
         </div>
       </div>
     </section>
@@ -113,127 +111,6 @@ function renderCommandsSheet() {
   `;
 }
 
-function renderSessionsSheet() {
-  return `
-    <section class="sheet-section">
-      <h3>Sessions for this project</h3>
-      <div class="sheet-list">
-        ${state.sessions.length ? state.sessions.map((session) => `
-          <button class="secondary" data-session-path="${escapeHtml(session.path)}">
-            <div><strong>${escapeHtml(session.name || session.firstMessage || session.id)}</strong></div>
-            <div class="label">${escapeHtml(formatDateTime(session.modified))} · ${escapeHtml(String(session.messageCount))} messages</div>
-            <div class="label mono">${escapeHtml(session.path)}</div>
-          </button>
-        `).join("") : '<div class="label">No sessions found yet for this cwd.</div>'}
-      </div>
-    </section>
-  `;
-}
-
-function sortedActiveSessions() {
-  return [...state.activeSessions].sort((left, right) => {
-    const leftCurrent = left.id === state.activeSessionId ? 1 : 0;
-    const rightCurrent = right.id === state.activeSessionId ? 1 : 0;
-    if (leftCurrent !== rightCurrent) return rightCurrent - leftCurrent;
-
-    const leftLive = left.isStreaming ? 1 : 0;
-    const rightLive = right.isStreaming ? 1 : 0;
-    if (leftLive !== rightLive) return rightLive - leftLive;
-
-    const leftLabel = left.label || left.sessionId || left.id;
-    const rightLabel = right.label || right.sessionId || right.id;
-    return leftLabel.localeCompare(rightLabel);
-  });
-}
-
-function renderActiveSessionsSheet() {
-  const sessions = sortedActiveSessions();
-  const parentSessions = sessions.filter((session) => session.kind === "parent");
-  const parallelSessions = sessions.filter((session) => session.kind === "parallel");
-
-  const renderSessionButton = (session, sectionKind) => {
-    const statusBits = [
-      session.id === state.activeSessionId ? "current" : "",
-      sectionKind === "parent" ? "mirroring cli" : "parallel",
-      session.isStreaming ? "live" : "",
-      session.hasPendingUiRequest ? "needs input" : "",
-      session.model?.name || "",
-      Number.isFinite(session.messageCount) ? `${session.messageCount} messages` : "",
-      session.secondaryLabel || "",
-    ].filter(Boolean).join(" · ");
-
-    const preview = session.lastUserPreview || session.firstUserPreview || "";
-
-    return `
-      <button class="secondary" data-active-session-id="${escapeHtml(session.id)}">
-        <div><strong>${escapeHtml(session.label || "Session")}</strong></div>
-        ${statusBits ? `<div class="label">${escapeHtml(statusBits)}</div>` : ""}
-        ${preview ? `<div class="label">${escapeHtml(preview)}</div>` : ""}
-      </button>
-    `;
-  };
-
-  return `
-    <section class="sheet-section">
-      <h3>Parent</h3>
-      <div class="button-row compact">
-        <button class="secondary" data-sheet-action="new-parent-session">New Parent</button>
-      </div>
-      <div class="sheet-list">
-        ${parentSessions.length
-          ? parentSessions.map((session) => renderSessionButton(session, "parent")).join("")
-          : '<div class="label">Parent session unavailable.</div>'}
-      </div>
-    </section>
-    <section class="sheet-section">
-      <h3>Parallel</h3>
-      <div class="button-row compact">
-        <button class="secondary" data-sheet-action="new-parallel-session">New Parallel</button>
-      </div>
-      <div class="sheet-list">
-        ${parallelSessions.length
-          ? parallelSessions.map((session) => renderSessionButton(session, "parallel")).join("")
-          : '<div class="label">No parallel sessions yet. Start one with “New Parallel”.</div>'}
-      </div>
-    </section>
-  `;
-}
-
-function renderTreeSheet() {
-  if (!state.tree) {
-    return `
-      <section class="sheet-section">
-        <h3>Session tree</h3>
-        <div class="label">Loading tree…</div>
-      </section>
-    `;
-  }
-
-  return `
-    <section class="sheet-section">
-      <h3>Session tree</h3>
-      <div class="label mono">${escapeHtml(state.tree.sessionFile || "")}</div>
-      <div class="sheet-list">
-        ${state.tree.nodes.map((node) => {
-          const isCurrent = state.tree.currentLeafId === node.id;
-          const onPath = state.tree.currentPathIds.includes(node.id);
-          return `
-            <div class="sheet-section" style="margin-left:${Math.min(node.depth * 12, 72)}px">
-              <div><strong>${escapeHtml(node.summary.kind)}</strong>${node.summary.role ? ` <span class="label">${escapeHtml(node.summary.role)}</span>` : ""}${node.label ? ` <span class="label">#${escapeHtml(node.label)}</span>` : ""}${isCurrent ? ' <span class="label">current</span>' : onPath ? ' <span class="label">path</span>' : ''}</div>
-              <div class="label">${escapeHtml(formatDateTime(node.timestamp))}</div>
-              <div>${escapeHtml(node.summary.preview || "(empty)")}</div>
-              <div class="button-row compact">
-                <button class="secondary" data-open-branch-entry="${escapeHtml(node.id)}">Open path</button>
-                ${node.summary.role === "user" ? `<button class="secondary" data-fork-entry="${escapeHtml(node.id)}">Fork here</button>` : ""}
-              </div>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    </section>
-  `;
-}
-
 export function renderSheet() {
   if (el.sheetModal.classList.contains("hidden")) return;
 
@@ -242,17 +119,10 @@ export function renderSheet() {
     commands: "Commands",
     models: "Models",
     thinking: "Thinking",
-    sessions: "Sessions",
-    "active-sessions": "Sessions",
-    tree: "Tree",
   };
   const nextTitle = titles[state.sheetMode] || "Actions";
   if (el.sheetTitle.textContent !== nextTitle) {
     el.sheetTitle.textContent = nextTitle;
-  }
-
-  if (el.sheetSavedSessionsButton) {
-    el.sheetSavedSessionsButton.classList.toggle("hidden", state.sheetMode !== "active-sessions");
   }
 
   const sections = {
@@ -260,9 +130,6 @@ export function renderSheet() {
     commands: renderCommandsSheet(),
     models: renderModelsSheet() + renderThinkingSheet(),
     thinking: renderThinkingSheet() + renderModelsSheet(),
-    sessions: renderSessionsSheet(),
-    "active-sessions": renderActiveSessionsSheet(),
-    tree: renderTreeSheet(),
   };
 
   const nextHtml = sections[state.sheetMode] || sections.actions;

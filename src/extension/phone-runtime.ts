@@ -129,7 +129,7 @@ export async function stopPersistedRuntime(host: string, port: number) {
       return {
         stopped: false,
         found: true,
-        message: "Pi Phone received the stop request but is still shutting down. Try /phone-start again in a moment.",
+        message: "Pi Phone received the stop request but is still shutting down. Try \"/phone start\" again in a moment.",
       };
     }
 

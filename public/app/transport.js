@@ -130,7 +130,7 @@ export function connectSocket({ handleEnvelope, handleAuthFailure }) {
       return;
     }
     if (event.code === 4010) {
-      showBanner("Pi Phone stopped due to inactivity. Run /phone-start again when needed.", "error");
+      showBanner("Pi Phone stopped due to inactivity. Run /phone start again when needed.", "error");
       return;
     }
     if (event.code === 1008) {

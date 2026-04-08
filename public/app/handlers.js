@@ -30,7 +30,7 @@ export function handleAuthFailure() {
   state.socket = null;
   renderHeader();
   openTokenModal();
-  showBanner("Access token required. Enter the current /phone-start token.", "error");
+  showBanner("Access token required. Enter the current /phone start token.", "error");
 }
 
 function sendUiResponse(payload) {
@@ -150,25 +150,6 @@ function handleRpcPayload(payload) {
       return;
     }
 
-    if (payload.command === "phone_list_sessions") {
-      state.sessions = payload.data?.sessions || [];
-      renderSheet();
-      return;
-    }
-
-    if (payload.command === "phone_get_tree") {
-      state.tree = payload.data || null;
-      renderSheet();
-      return;
-    }
-
-    if (payload.command === "new_parent_session") {
-      clearTransientState();
-      refreshAll();
-      showToast("Started a new parent session.");
-      return;
-    }
-
     if (payload.command === "new_session") {
       clearTransientState();
       refreshAll();
@@ -205,27 +186,6 @@ function handleRpcPayload(payload) {
     if (payload.command === "set_thinking_level") {
       showToast("Thinking level updated.");
       refreshAll();
-      return;
-    }
-
-    if (payload.command === "switch_session") {
-      showToast("Session switched.");
-      refreshAll();
-      closeSheet();
-      return;
-    }
-
-    if (payload.command === "fork") {
-      showToast("Fork created.");
-      refreshAll();
-      closeSheet();
-      return;
-    }
-
-    if (payload.command === "phone_open_branch_path") {
-      showToast("Opened selected branch path as a new session.");
-      refreshAll();
-      closeSheet();
       return;
     }
 
@@ -333,33 +293,13 @@ function handleRpcPayload(payload) {
 }
 
 export async function handleEnvelope(event) {
-  if (event.channel === "sessions" && event.event === "catalog") {
-    const nextActiveSessionId = event.data?.activeSessionId || state.activeSessionId;
-    const activeSessionChanged = nextActiveSessionId !== state.activeSessionId;
-
-    state.activeSessions = event.data?.sessions || [];
-    state.activeSessionId = nextActiveSessionId;
-
-    if (activeSessionChanged && state.snapshotWorkerId && state.snapshotWorkerId !== state.activeSessionId) {
-      clearSnapshotView();
-      renderMessages();
-    }
-
-    renderHeader();
-    renderSheet();
-    return;
-  }
-
   if (event.channel === "snapshot") {
-    if (event.sessionWorkerId && state.activeSessionId && event.sessionWorkerId !== state.activeSessionId) {
-      return;
-    }
-
     state.snapshotState = event.state || null;
-    state.snapshotWorkerId = event.sessionWorkerId || state.activeSessionId || null;
+    state.snapshotWorkerId = event.sessionWorkerId || null;
     state.status = { ...(state.status || {}), isStreaming: Boolean(event.state?.isStreaming) };
     state.messages = (event.messages || []).flatMap(transformMessage);
     state.commands = event.commands || state.commands;
+    if (event.models) state.models = event.models;
     clearTransientState();
 
     if (event.liveAssistantMessage?.role === "assistant") {
@@ -402,8 +342,12 @@ export async function handleEnvelope(event) {
 
   if (event.channel === "server") {
     if (event.event === "status") {
+      const prevInputSource = state.status?.inputSource;
       state.status = event.data;
       renderHeader();
+      if (event.data?.inputSource && event.data.inputSource !== prevInputSource) {
+        refreshAll();
+      }
       return;
     }
     if (event.event === "stderr") {
@@ -412,10 +356,6 @@ export async function handleEnvelope(event) {
     }
     if (event.event === "reloading") {
       showBanner(event.data?.message || "");
-      return;
-    }
-    if (event.event === "session-spawned") {
-      showToast(event.data?.message || "Opened new parallel session.");
       return;
     }
     if (event.event === "single-client-replaced") {

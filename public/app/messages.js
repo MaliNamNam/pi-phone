@@ -6,14 +6,20 @@ import {
   escapeAttribute,
   escapeHtml,
   formatTimestamp,
+  ansiToHtml,
   toDetailString,
   stripTerminalControlSequences,
 } from "./formatters.js";
 import { renderMarkdownLite } from "./markdown.js";
 import { renderRichToolContent } from "./tool-rendering.js";
-import { scrollMessagesToBottom, showToast, updateJumpToLatestButton } from "./ui.js";
+import { isNearBottom, scrollMessagesToBottom, showToast, updateJumpToLatestButton } from "./ui.js";
 
 const INLINE_USER_CUSTOM_TYPES = new Set(["phone-inline-user-message"]);
+
+let renderFrame = 0;
+let pendingRender = { forceScroll: false, streaming: false };
+let renderedItemIds = [];
+let renderedLiveIds = new Set();
 
 function userContentDisplayText(content) {
   const imageCount = countImages(content);
@@ -102,12 +108,17 @@ export function transformMessage(message, index) {
 
   if (message.role === "assistant") {
     const parts = assistantParts(message.content);
+    // Skip tool-use-only assistant messages with no text and no thinking
+    if (!parts.text && !parts.thinking && parts.toolCalls.length > 0) return [];
+    // When there's only thinking (no text), promote thinking to body text (styled as thinking)
+    const thinkingAsBody = !parts.text && parts.thinking;
     return [{
       id: `assistant-${message.timestamp || index}`,
       kind: "assistant",
       meta: [message.model, formatTimestamp(message.timestamp)].filter(Boolean).join(" · "),
-      text: parts.text,
-      thinking: parts.thinking,
+      text: thinkingAsBody ? parts.thinking : parts.text,
+      thinking: thinkingAsBody ? "" : parts.thinking,
+      thinkingAsBody,
       toolCalls: parts.toolCalls,
       details: message.usage || message.stopReason ? {
         usage: message.usage,
@@ -224,6 +235,9 @@ function renderDetailSection(title, value, options = {}) {
 }
 
 function renderAssistantDetails(item) {
+  // Skip details for live items since they get re-rendered frequently, losing expanded state
+  if (item.live) return "";
+
   const sections = [];
   if (item.thinking) sections.push(renderDetailSection("Thinking", item.thinking, { markdown: true }));
 
@@ -252,7 +266,7 @@ function toolDetailsForSecondarySection(item) {
   return Object.keys(rest).length ? rest : null;
 }
 
-function renderMessage(item) {
+function renderMessageInner(item) {
   const richTool = item.kind === "tool" ? renderRichToolContent(item) : "";
   const roleLabel = {
     assistant: "Pi",
@@ -267,11 +281,14 @@ function renderMessage(item) {
     ? renderUserContent(item.rawContent, item.text || "")
     : { html: "", renderedImages: 0 };
 
-  const bodyMain = richTool || (item.kind === "tool"
+  const bodyText = item.kind === "tool"
     ? `<pre>${escapeHtml(item.text || "")}</pre>`
     : item.kind === "user"
       ? renderedUser.html
-      : renderMarkdownLite(item.text || ""));
+      : (item.live && !item.text) ? "" : renderMarkdownLite(item.text || "");
+  const bodyMain = richTool || (item.thinkingAsBody
+    ? `<div class="thinking-body">${bodyText}</div>`
+    : bodyText);
 
   const detailValue = item.kind === "tool" ? toolDetailsForSecondarySection(item) : item.details;
   const extraDetails = item.kind === "assistant"
@@ -280,19 +297,32 @@ function renderMessage(item) {
       ? renderDetailSection("Details", toDetailString(detailValue))
       : "";
 
+  const expandButton = item.live
+    ? ""
+    : `<button class="msg-expand-btn" data-msg-id="${escapeAttribute(item.id)}"></button>`;
+  const gradientElement = item.live ? "" : `<div class="msg-gradient"></div>`;
+
+  const metaPills = renderMessageMeta(item, { suppressImageCount: renderedUser.renderedImages > 0 });
+
   return `
-    <article class="message ${item.kind}">
       <div class="message-header">
         <div class="role-badge">${escapeHtml(roleLabel)}${item.live ? " · live" : ""}</div>
-        <div class="meta">${escapeHtml(item.meta || "")}</div>
+        <div class="meta">${metaPills}${escapeHtml(item.meta || "")}</div>
       </div>
       <div class="message-body">
         ${bodyMain}
-        ${richTool ? "" : renderMessageMeta(item, { suppressImageCount: renderedUser.renderedImages > 0 })}
         ${extraDetails}
+        ${gradientElement}
+        ${expandButton}
       </div>
-    </article>
   `;
+}
+
+function renderMessage(item) {
+  const isExpanded = state.messageExpanded.has(item.id);
+  // Don't eagerly cap - let updateMessageCaps decide after measuring
+  const capClass = item.live ? "" : (isExpanded ? "msg-expanded" : "");
+  return `<article class="message ${item.kind} ${capClass}" data-item-id="${escapeAttribute(item.id)}">${renderMessageInner(item)}</article>`;
 }
 
 function enrichToolItems(items) {
@@ -316,8 +346,8 @@ function enrichToolItems(items) {
 
 function currentItems() {
   const items = [...state.messages];
-  for (const tool of state.liveTools.values()) items.push(tool);
   if (state.liveAssistant) items.push(state.liveAssistant);
+  for (const tool of state.liveTools.values()) items.push(tool);
   return enrichToolItems(items);
 }
 
@@ -339,6 +369,8 @@ export function clearSnapshotView() {
   state.snapshotWorkerId = null;
   state.messages = [];
   clearTransientState();
+  renderedItemIds = [];
+  renderedLiveIds.clear();
 }
 
 export function handleAssistantEvent(event) {
@@ -370,24 +402,91 @@ export function upsertLiveTool(toolId, value) {
 }
 
 export function renderMessages({ forceScroll = false, streaming = hasLiveItems() } = {}) {
+  pendingRender = {
+    forceScroll: pendingRender.forceScroll || forceScroll,
+    streaming: pendingRender.streaming || streaming,
+  };
+  if (renderFrame) return;
+  renderFrame = requestAnimationFrame(() => {
+    renderFrame = 0;
+    const opts = pendingRender;
+    pendingRender = { forceScroll: false, streaming: false };
+    flushRenderMessages(opts);
+  });
+}
+
+function flushRenderMessages({ forceScroll, streaming }) {
   const items = currentItems();
   if (!items.length) {
     el.messages.innerHTML = `
       <article class="message system">
         <div class="message-header"><div class="role-badge">Ready</div></div>
         <div class="message-body">
-          <p>This phone UI now exposes much more of Pi: commands, models, thinking, sessions, tree history, custom extension messages, and image upload.</p>
+          <p>This phone UI exposes Pi: commands, models, thinking, compact, custom extension messages, and image upload.</p>
         </div>
       </article>
     `;
+    renderedItemIds = [];
+    renderedLiveIds.clear();
     updateJumpToLatestButton();
     return;
   }
 
-  el.messages.innerHTML = items.map(renderMessage).join("");
+  const nextIds = items.map(item => item.id);
+  const canPatch = renderedItemIds.length > 0
+    && nextIds.length >= renderedItemIds.length
+    && renderedItemIds.every((id, i) => id === nextIds[i]);
+
+  if (canPatch) {
+    // Append any new items without rebuilding existing DOM
+    if (nextIds.length > renderedItemIds.length) {
+      el.messages.insertAdjacentHTML("beforeend", items.slice(renderedItemIds.length).map(renderMessage).join(""));
+    }
+    // Patch only items that are live or were live on last render
+    const currentLiveIds = new Set(items.filter(item => item.live).map(item => item.id));
+    const dirtyIds = new Set([...currentLiveIds, ...renderedLiveIds]);
+    for (const item of items) {
+      if (!dirtyIds.has(item.id)) continue;
+      const article = el.messages.querySelector(`[data-item-id="${CSS.escape(item.id)}"]`);
+      if (article) article.innerHTML = renderMessageInner(item);
+    }
+    renderedLiveIds = currentLiveIds;
+  } else {
+    el.messages.innerHTML = items.map(renderMessage).join("");
+    renderedLiveIds = new Set(items.filter(item => item.live).map(item => item.id));
+  }
+
+  // Apply height caps after DOM is updated
+  updateMessageCaps();
+
+  renderedItemIds = nextIds;
   updateJumpToLatestButton();
-  scrollMessagesToBottom({ force: forceScroll, streaming, behavior: "smooth" });
+
+  // Scroll only if forced or user has explicitly enabled followLatest
+  const shouldScroll = forceScroll || state.followLatest;
+  scrollMessagesToBottom({ force: shouldScroll, streaming });
 }
+
+function updateMessageCaps() {
+  const capPx = window.innerHeight * 0.5; // 50vh
+  for (const article of el.messages.querySelectorAll('.message')) {
+    const body = article.querySelector('.message-body');
+    const btn = article.querySelector('.msg-expand-btn');
+    if (!body || !btn) continue;
+
+    const msgId = article.dataset.itemId || '';
+    const isExpanded = state.messageExpanded.has(msgId);
+    const overflows = body.scrollHeight > capPx + 4;
+    const needsCap = !isExpanded && overflows;
+
+    article.classList.toggle('msg-capped', needsCap);
+    article.classList.toggle('msg-expanded', isExpanded);
+    btn.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    btn.textContent = isExpanded ? '▲ less' : '▼ more';
+  }
+}
+
+export { updateMessageCaps };
 
 export function renderWidgets() {
   const widgets = [...state.widgets.entries()];
@@ -408,7 +507,7 @@ export function renderWidgets() {
     cards.unshift(`
       <article class="widget-card">
         <h3>Extension status</h3>
-        <div>${escapeHtml(state.footerStatus)}</div>
+        <div>${ansiToHtml(state.footerStatus)}</div>
       </article>
     `);
   }

@@ -8,53 +8,48 @@
     <link rel="manifest" href="/manifest.webmanifest?v=20260323-1" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon.svg" />
-    <link rel="stylesheet" href="/styles.css?v=20260323-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260401-1" />
   </head>
   <body>
-    <button id="session-sidebar-button" class="sidebar-toggle-button secondary" aria-label="Open session browser" title="Open session browser">☰ Sessions</button>
-
     <div class="app-shell">
       <header class="topbar">
         <div>
           <div class="eyebrow">Pi Phone</div>
-          <h1>Pi, but couch-friendly</h1>
-          <p class="subtitle">Your current Pi setup, extensions, skills, and prompts — in a phone UI.</p>
+          <h1 id="session-name">—</h1>
         </div>
         <div class="status-pill" id="connection-pill">Connecting…</div>
       </header>
 
       <section class="status-card">
-        <div class="status-grid">
-          <div>
-            <div class="label">Working directory</div>
-            <div class="value mono" id="cwd-value">—</div>
+        <div class="status-row">
+          <div class="status-item">
+            <span class="status-label">CWD</span>
+            <span class="status-value mono" id="cwd-value">—</span>
           </div>
-          <div>
-            <div class="label">Session</div>
-            <div class="value" id="session-value">—</div>
+          <div class="status-item">
+            <span class="status-label">Model</span>
+            <span class="status-value" id="model-value">—</span>
           </div>
-          <div>
-            <div class="label">Model</div>
-            <div class="value" id="model-value">—</div>
+          <div class="status-item">
+            <span class="status-label">Thinking</span>
+            <span class="status-value" id="thinking-value">—</span>
           </div>
-          <div>
-            <div class="label">Thinking</div>
-            <div class="value" id="thinking-value">—</div>
+          <div class="status-item">
+            <span class="status-label">State</span>
+            <span class="status-value" id="streaming-value">Idle</span>
           </div>
-          <div>
-            <div class="label">State</div>
-            <div class="value" id="streaming-value">Idle</div>
-          </div>
-          <div>
-            <div class="label">Server</div>
-            <div class="value mono" id="server-value">—</div>
+          <div class="status-item">
+            <span class="status-label">Server</span>
+            <span class="status-value mono" id="server-value">—</span>
           </div>
         </div>
         <div class="button-row compact">
           <button id="actions-button" class="secondary">Actions</button>
           <button id="refresh-button" class="secondary">Refresh</button>
-          <button id="tree-browser-button" class="secondary">Tree</button>
-          <button id="abort-button" class="danger">Abort</button>
+          <label class="checkbox-label">
+            <input type="checkbox" id="enter-sends-checkbox" />
+            <span>Enter sends</span>
+          </label>
         </div>
       </section>
 
@@ -77,13 +72,18 @@
               autocomplete="off"
               autocapitalize="sentences"
               spellcheck="true"
-              enterkeyhint="enter"
+              enterkeyhint="send"
             ></textarea>
             <button id="stop-button" class="composer-inline-button stop-button danger hidden" aria-label="Stop response" title="Stop response">Stop</button>
-            <button id="send-button" class="composer-inline-button send-button" aria-label="Send message" title="Send message">&gt;</button>
+            <button id="send-button" class="composer-inline-button send-button" aria-label="Send message" title="Send message">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
           </div>
           <div class="composer-actions">
-            <button id="attach-image-button" class="secondary">Attach</button>
+            <button id="attach-image-button" class="secondary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 0.25rem;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              Attach
+            </button>
             <button id="insert-command-button" class="secondary">Commands</button>
             <button id="cd-command-button" class="secondary">/cd</button>
             <button id="steer-button" class="secondary hidden">Steer</button>
@@ -105,7 +105,7 @@
     <div id="login-modal" class="modal-backdrop hidden">
       <div class="modal-card narrow">
         <h2>Access token required</h2>
-        <p class="modal-copy">Enter the app token configured in <code>/phone-start</code>.</p>
+        <p class="modal-copy">Enter the app token configured in <code>/phone start</code>.</p>
         <input id="token-input" type="password" placeholder="App token" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" />
         <div class="button-row">
           <button id="token-save-button">Connect</button>
@@ -131,7 +131,6 @@
             <h2 id="sheet-title">Actions</h2>
           </div>
           <div class="sheet-header-actions">
-            <button id="sheet-saved-sessions-button" class="secondary hidden">Saved sessions</button>
             <button id="sheet-close-button" class="secondary">Close</button>
           </div>
         </div>
@@ -139,6 +138,7 @@
       </div>
     </div>
 
+    <button id="jump-to-top-button" class="jump-to-top-button hidden secondary" type="button" aria-label="Jump to top">▴</button>
     <button id="jump-to-latest-button" class="jump-to-latest-button hidden secondary" type="button" aria-label="Jump to latest message">▾</button>
     <div id="toast-host" class="toast-host"></div>
 

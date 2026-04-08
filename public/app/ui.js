@@ -4,12 +4,11 @@ import { el, state } from "./state.js";
 
 let composerLayoutFrame = 0;
 let messageScrollFrame = 0;
-let pendingMessageScroll = { force: false, streaming: false, behavior: "smooth" };
+let headerFrame = 0;
+let pendingMessageScroll = { force: false, streaming: false };
 
-const NEAR_BOTTOM_THRESHOLD = 120;
-const STREAM_FOLLOW_INTERVAL_MS = 320;
-const STREAM_FOLLOW_MIN_HEIGHT_DELTA = 16;
-const PROGRAMMATIC_SCROLL_GUARD_MS = 700;
+const NEAR_BOTTOM_THRESHOLD = 150;
+const PROGRAMMATIC_SCROLL_GUARD_MS = 300;
 
 export function storeToken(token) {
   if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
@@ -128,7 +127,7 @@ export function setFollowLatest(value) {
   updateJumpToLatestButton();
 }
 
-export function scrollMessagesToBottom({ force = false, streaming = false, behavior = "smooth" } = {}) {
+export function scrollMessagesToBottom({ force = false, streaming = false } = {}) {
   if (isAnyModalOpen()) {
     updateJumpToLatestButton();
     return;
@@ -137,14 +136,13 @@ export function scrollMessagesToBottom({ force = false, streaming = false, behav
   pendingMessageScroll = {
     force: pendingMessageScroll.force || force,
     streaming: pendingMessageScroll.streaming || streaming,
-    behavior,
   };
 
   if (messageScrollFrame) return;
   messageScrollFrame = requestAnimationFrame(() => {
     messageScrollFrame = 0;
     const nextScroll = pendingMessageScroll;
-    pendingMessageScroll = { force: false, streaming: false, behavior: "smooth" };
+    pendingMessageScroll = { force: false, streaming: false };
 
     if (isAnyModalOpen()) {
       updateJumpToLatestButton();
@@ -158,7 +156,9 @@ export function scrollMessagesToBottom({ force = false, streaming = false, behav
       return;
     }
 
-    if (!nextScroll.force && !state.followLatest && !isNearBottom()) {
+    // Only scroll if forced OR user has explicitly enabled followLatest.
+    // Don't auto-scroll just because user is near bottom - that causes jitter.
+    if (!nextScroll.force && !state.followLatest) {
       updateJumpToLatestButton();
       return;
     }
@@ -170,11 +170,12 @@ export function scrollMessagesToBottom({ force = false, streaming = false, behav
     const heightDelta = Math.abs(root.scrollHeight - state.lastAutoFollowHeight);
 
     if (!nextScroll.force && nextScroll.streaming) {
-      if (state.lastAutoFollowAt && now - state.lastAutoFollowAt < STREAM_FOLLOW_INTERVAL_MS) {
+      // Throttle streaming scrolls more aggressively to prevent jitter
+      if (state.lastAutoFollowAt && now - state.lastAutoFollowAt < 500) {
         updateJumpToLatestButton();
         return;
       }
-      if (state.lastAutoFollowHeight && heightDelta < STREAM_FOLLOW_MIN_HEIGHT_DELTA) {
+      if (state.lastAutoFollowHeight && heightDelta < 20) {
         updateJumpToLatestButton();
         return;
       }
@@ -183,16 +184,16 @@ export function scrollMessagesToBottom({ force = false, streaming = false, behav
     if (Math.abs(targetTop - scrollTop) < 2) {
       state.lastAutoFollowAt = now;
       state.lastAutoFollowHeight = root.scrollHeight;
-      state.followLatest = true;
       updateJumpToLatestButton();
       return;
     }
 
     state.ignoreScrollTrackingUntil = now + PROGRAMMATIC_SCROLL_GUARD_MS;
-    window.scrollTo({ top: targetTop, behavior: nextScroll.behavior });
+    // Native smooth scroll - browser auto-cancels on user touch
+    const behavior = nextScroll.force ? "smooth" : "instant";
+    window.scrollTo({ top: targetTop, behavior });
     state.lastAutoFollowAt = now;
     state.lastAutoFollowHeight = root.scrollHeight;
-    state.followLatest = true;
     updateJumpToLatestButton();
   });
 }
@@ -292,12 +293,10 @@ function updateComposerState() {
   const streaming = Boolean(state.status?.isStreaming || state.snapshotState?.isStreaming);
   const sendLabel = streaming ? "Queue message" : "Send message";
 
-  el.abortButton.disabled = !streaming;
   if (el.stopButton) {
     el.stopButton.disabled = !streaming;
     el.stopButton.classList.toggle("hidden", !streaming);
   }
-  el.sendButton.textContent = ">";
   el.sendButton.setAttribute("aria-label", sendLabel);
   el.sendButton.setAttribute("title", sendLabel);
   el.steerButton.classList.toggle("hidden", !streaming);
@@ -305,21 +304,32 @@ function updateComposerState() {
 }
 
 export function renderHeader() {
+  if (headerFrame) return;
+  headerFrame = requestAnimationFrame(() => {
+    headerFrame = 0;
+    flushHeader();
+  });
+}
+
+function flushHeader() {
   const connected = state.socket?.readyState === WebSocket.OPEN;
   el.connectionPill.textContent = connected ? "Connected" : "Offline";
   el.connectionPill.classList.toggle("offline", !connected);
 
   const status = state.status || state.health || {};
   applyThemePalette(status.theme || state.health?.theme || null);
-  const snapshotMatchesActive = !state.snapshotWorkerId || !state.activeSessionId || state.snapshotWorkerId === state.activeSessionId;
-  const snapshot = snapshotMatchesActive ? (state.snapshotState || {}) : {};
-  const activeSession = state.activeSessions.find((session) => session.id === state.activeSessionId) || null;
+  const snapshot = state.snapshotState || {};
+  const sessionName = snapshot.sessionName || "Pi Phone";
+  el.sessionNameEl.textContent = sessionName;
+  document.title = sessionName;
   el.cwdValue.textContent = status.cwd || "—";
-  el.sessionValue.textContent = snapshot.sessionName || snapshot.sessionId || activeSession?.label || "Current session";
-  el.modelValue.textContent = snapshot.model?.name || snapshot.model?.id || activeSession?.model?.name || "Default";
+  el.modelValue.textContent = snapshot.model?.name || snapshot.model?.id || "Default";
   el.thinkingValue.textContent = snapshot.thinkingLevel || "—";
-  const owner = status.controlOwner || "cli";
-  el.streamingValue.textContent = `${status.isStreaming || snapshot.isStreaming ? "Streaming" : "Idle"} · ${owner}`;
+  const inputSource = status.inputSource || "phone";
+  el.streamingValue.textContent = `${status.isStreaming || snapshot.isStreaming ? "Streaming" : "Idle"} · ${inputSource}`;
+  const cliFocused = inputSource === "cli";
+  document.body.classList.toggle("cli-focused", cliFocused);
+  el.promptInput.placeholder = cliFocused ? "CLI has focus — tap to take back" : "Message Pi…";
   el.serverValue.textContent = status.port ? `${status.host || "127.0.0.1"}:${status.port}` : "—";
   updateComposerState();
   renderQuota();
@@ -336,7 +346,24 @@ export function openTokenModal() {
     el.tokenInput.value = state.token;
   }
   el.loginModal.classList.remove("hidden");
-  setTimeout(() => el.tokenInput.focus(), 10);
+  applyPasswordManagerIgnore();
+  requestAnimationFrame(() => el.tokenInput.focus());
+}
+
+export function applyPasswordManagerIgnore() {
+  if (!el.tokenInput) return;
+  if (state.status?.passwordManagerIgnore || state.health?.passwordManagerIgnore) {
+    el.tokenInput.setAttribute("data-1p-ignore", "");
+    el.tokenInput.setAttribute("data-lpignore", "true");
+    el.tokenInput.setAttribute("data-bwignore", "true");
+    el.tokenInput.setAttribute("data-form-type", "other");
+    el.tokenInput.setAttribute("autocomplete", "off");
+  } else {
+    el.tokenInput.removeAttribute("data-1p-ignore");
+    el.tokenInput.removeAttribute("data-lpignore");
+    el.tokenInput.removeAttribute("data-bwignore");
+    el.tokenInput.removeAttribute("data-form-type");
+  }
 }
 
 export function closeTokenModal() {

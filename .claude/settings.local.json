@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/esd/projects/pi-phone -maxdepth 2 -name .env* -o -name *secret* -o -name *credential*)"
+    ]
+  }
+}

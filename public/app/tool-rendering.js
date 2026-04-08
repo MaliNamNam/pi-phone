@@ -125,13 +125,14 @@ function renderDiffPreview(lines, { limit = 80 } = {}) {
   }
 
   const visible = lines.slice(0, limit);
-  const hiddenCount = Math.max(0, lines.length - visible.length);
+  const hiddenLines = lines.slice(limit);
 
   return `
     <div class="tool-diff-block">
       ${visible.map(renderDiffLine).join("")}
+      ${hiddenLines.length ? `<div class="tool-preview-overflow">${hiddenLines.map(renderDiffLine).join("")}</div>` : ""}
     </div>
-    ${hiddenCount > 0 ? `<div class="tool-preview-truncated">… ${hiddenCount} more diff lines</div>` : ""}
+    ${hiddenLines.length ? `<button class="tool-preview-truncated" data-count="${hiddenLines.length}" data-kind="diff" data-label="… ${hiddenLines.length} more diff lines">… ${hiddenLines.length} more diff lines</button>` : ""}
   `;
 }
 
@@ -160,7 +161,7 @@ function renderCodePreview(text = "", { limit = 24, startLine = 1, emptyLabel = 
   }
 
   const visible = allLines.slice(0, limit);
-  const hiddenCount = Math.max(0, allLines.length - visible.length);
+  const hiddenLines = allLines.slice(limit);
 
   return `
     <div class="tool-code-block">
@@ -170,8 +171,14 @@ function renderCodePreview(text = "", { limit = 24, startLine = 1, emptyLabel = 
           <span class="tool-code-content mono">${escapeHtml(line === "" ? " " : line)}</span>
         </div>
       `).join("")}
+      ${hiddenLines.length ? `<div class="tool-preview-overflow">${hiddenLines.map((line, index) => `
+        <div class="tool-code-line">
+          <span class="tool-code-gutter mono">${escapeHtml(String(startLine + limit + index))}</span>
+          <span class="tool-code-content mono">${escapeHtml(line === "" ? " " : line)}</span>
+        </div>
+      `).join("")}</div>` : ""}
     </div>
-    ${hiddenCount > 0 ? `<div class="tool-preview-truncated">… ${hiddenCount} more line${hiddenCount === 1 ? "" : "s"}</div>` : ""}
+    ${hiddenLines.length ? `<button class="tool-preview-truncated" data-count="${hiddenLines.length}" data-kind="line" data-label="… ${hiddenLines.length} more line${hiddenLines.length === 1 ? "" : "s"}">… ${hiddenLines.length} more line${hiddenLines.length === 1 ? "" : "s"}</button>` : ""}
     ${notice ? `<div class="tool-panel-note">${escapeHtml(notice)}</div>` : ""}
   `;
 }
@@ -180,13 +187,14 @@ function renderMarkdownPreview(text = "", { limit = 80 } = {}) {
   const { body, notice } = splitToolNotice(text);
   const lines = normalizeNewlines(body).split("\n");
   const visible = lines.slice(0, limit).join("\n").trim();
-  const hiddenCount = Math.max(0, lines.length - limit);
+  const hiddenLines = lines.slice(limit);
 
   return `
     <div class="tool-markdown-preview">
       ${renderMarkdownLite(visible || "(empty markdown file)")}
+      ${hiddenLines.length ? `<div class="tool-preview-overflow">${renderMarkdownLite(hiddenLines.join("\n").trim())}</div>` : ""}
     </div>
-    ${hiddenCount > 0 ? `<div class="tool-preview-truncated">… ${hiddenCount} more markdown line${hiddenCount === 1 ? "" : "s"}</div>` : ""}
+    ${hiddenLines.length ? `<button class="tool-preview-truncated" data-count="${hiddenLines.length}" data-kind="markdown" data-label="… ${hiddenLines.length} more markdown line${hiddenLines.length === 1 ? "" : "s"}">… ${hiddenLines.length} more markdown line${hiddenLines.length === 1 ? "" : "s"}</button>` : ""}
     ${notice ? `<div class="tool-panel-note">${escapeHtml(notice)}</div>` : ""}
   `;
 }
@@ -197,12 +205,15 @@ function renderTerminalPreview(text = "", { limit = 80 } = {}) {
   if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
 
   const visible = lines.slice(0, limit);
-  const hiddenCount = Math.max(0, lines.length - visible.length);
+  const hiddenLines = lines.slice(limit);
   const terminalText = visible.length ? visible.join("\n") : "(no output)";
 
   return `
-    <pre class="tool-terminal-block mono">${escapeHtml(terminalText)}</pre>
-    ${hiddenCount > 0 ? `<div class="tool-preview-truncated">… ${hiddenCount} more output line${hiddenCount === 1 ? "" : "s"}</div>` : ""}
+    <div class="tool-terminal-block">
+      <pre class="mono">${escapeHtml(terminalText)}</pre>
+      ${hiddenLines.length ? `<pre class="mono tool-preview-overflow">${escapeHtml(hiddenLines.join("\n"))}</pre>` : ""}
+    </div>
+    ${hiddenLines.length ? `<button class="tool-preview-truncated" data-count="${hiddenLines.length}" data-kind="output" data-label="… ${hiddenLines.length} more output line${hiddenLines.length === 1 ? "" : "s"}">… ${hiddenLines.length} more output line${hiddenLines.length === 1 ? "" : "s"}</button>` : ""}
     ${notice ? `<div class="tool-panel-note">${escapeHtml(notice)}</div>` : ""}
   `;
 }
@@ -281,14 +292,13 @@ function renderGrepPreview(text = "", { limitFiles = 8, limitLinesPerFile = 10 }
   }
 
   const fileEntries = [...groups.entries()];
-  const hiddenFiles = Math.max(0, fileEntries.length - limitFiles);
-  const visibleFiles = fileEntries.slice(0, limitFiles);
+  const hiddenFileGroups = fileEntries.slice(limitFiles);
 
   const html = `
     <div class="tool-match-groups">
-      ${visibleFiles.map(([path, items]) => {
+      ${fileEntries.slice(0, limitFiles).map(([path, items]) => {
         const visibleItems = items.slice(0, limitLinesPerFile);
-        const hiddenLines = Math.max(0, items.length - visibleItems.length);
+        const hiddenLines = items.slice(limitLinesPerFile);
         return `
           <section class="tool-match-group">
             <div class="tool-match-group-header mono">${escapeHtml(path)}</div>
@@ -299,13 +309,36 @@ function renderGrepPreview(text = "", { limitFiles = 8, limitLinesPerFile = 10 }
                   <span class="tool-match-text mono">${escapeHtml(entry.text === "" ? " " : entry.text)}</span>
                 </div>
               `).join("")}
+              ${hiddenLines.length ? `<div class="tool-preview-overflow">${hiddenLines.map((entry) => `
+                <div class="tool-match-line ${entry.kind}">
+                  <span class="tool-match-gutter mono">${escapeHtml(String(entry.lineNumber))}</span>
+                  <span class="tool-match-text mono">${escapeHtml(entry.text === "" ? " " : entry.text)}</span>
+                </div>
+              `).join("")}</div>` : ""}
             </div>
-            ${hiddenLines > 0 ? `<div class="tool-preview-truncated">… ${hiddenLines} more line${hiddenLines === 1 ? "" : "s"} in ${escapeHtml(path)}</div>` : ""}
+            ${hiddenLines.length ? `<button class="tool-preview-truncated" data-count="${hiddenLines.length}" data-kind="grep-line" data-label="… ${hiddenLines.length} more line${hiddenLines.length === 1 ? "" : "s"} in ${escapeHtml(path)}">… ${hiddenLines.length} more line${hiddenLines.length === 1 ? "" : "s"} in ${escapeHtml(path)}</button>` : ""}
           </section>
         `;
       }).join("")}
+      ${hiddenFileGroups.length ? `
+        <div class="tool-preview-overflow" data-overflow-kind="file">
+          ${hiddenFileGroups.map(([path, items]) => `
+            <section class="tool-match-group">
+              <div class="tool-match-group-header mono">${escapeHtml(path)}</div>
+              <div class="tool-match-group-lines">
+                ${items.map((entry) => `
+                  <div class="tool-match-line ${entry.kind}">
+                    <span class="tool-match-gutter mono">${escapeHtml(String(entry.lineNumber))}</span>
+                    <span class="tool-match-text mono">${escapeHtml(entry.text === "" ? " " : entry.text)}</span>
+                  </div>
+                `).join("")}
+              </div>
+            </section>
+          `).join("")}
+        </div>
+        <button class="tool-preview-truncated" data-count="${hiddenFileGroups.length}" data-kind="grep-file" data-label="… ${hiddenFileGroups.length} more matching file${hiddenFileGroups.length === 1 ? "" : "s"}">… ${hiddenFileGroups.length} more matching file${hiddenFileGroups.length === 1 ? "" : "s"}</button>
+      ` : ""}
     </div>
-    ${hiddenFiles > 0 ? `<div class="tool-preview-truncated">… ${hiddenFiles} more matching file${hiddenFiles === 1 ? "" : "s"}</div>` : ""}
     ${notice ? `<div class="tool-panel-note">${escapeHtml(notice)}</div>` : ""}
   `;
 
@@ -326,7 +359,7 @@ function renderListPreview(entries, { limit = 40 } = {}) {
   }
 
   const visible = entries.slice(0, limit);
-  const hiddenCount = Math.max(0, entries.length - visible.length);
+  const hiddenEntries = entries.slice(limit);
 
   return `
     <div class="tool-entry-list">
@@ -336,8 +369,14 @@ function renderListPreview(entries, { limit = 40 } = {}) {
           <span class="tool-entry-text mono">${escapeHtml(entry)}</span>
         </div>
       `).join("")}
+      ${hiddenEntries.length ? `<div class="tool-preview-overflow">${hiddenEntries.map((entry) => `
+        <div class="tool-entry-row ${entry.endsWith("/") ? "directory" : "file"}">
+          <span class="tool-entry-icon">${entry.endsWith("/") ? "📁" : "📄"}</span>
+          <span class="tool-entry-text mono">${escapeHtml(entry)}</span>
+        </div>
+      `).join("")}</div>` : ""}
     </div>
-    ${hiddenCount > 0 ? `<div class="tool-preview-truncated">… ${hiddenCount} more result${hiddenCount === 1 ? "" : "s"}</div>` : ""}
+    ${hiddenEntries.length ? `<button class="tool-preview-truncated" data-count="${hiddenEntries.length}" data-kind="entry" data-label="… ${hiddenEntries.length} more result${hiddenEntries.length === 1 ? "" : "s"}">… ${hiddenEntries.length} more result${hiddenEntries.length === 1 ? "" : "s"}</button>` : ""}
   `;
 }
 
@@ -475,7 +514,7 @@ function renderBashToolContent(item) {
   if (item.status === "running" || item.live) badges.push(renderToolBadge("running", "accent"));
   else if (item.status === "error") badges.push(renderToolBadge("failed", "removed"));
   else if (item.status === "cancelled") badges.push(renderToolBadge("cancelled", "neutral"));
-  else badges.push(renderToolBadge("done", "added"));
+  // Skip "done" badge - header already shows status pill
   if (typeof item.args?.timeout === "number") badges.push(renderToolBadge(`${item.args.timeout}s timeout`, "neutral"));
   if (details?.fullOutputPath) badges.push(renderToolBadge("full log saved", "neutral"));
 

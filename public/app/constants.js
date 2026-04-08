@@ -9,8 +9,6 @@ export const LOCAL_COMMAND_DEFINITIONS = [
   { name: "model", description: "Open model picker" },
   { name: "thinking", description: "Open thinking level picker" },
   { name: "commands", description: "Browse commands, skills, and prompts" },
-  { name: "sessions", description: "Browse saved sessions" },
-  { name: "tree", description: "Browse the current session tree" },
   { name: "cd", description: "Change Pi working directory", insertOnly: true },
   { name: "refresh", description: "Refresh snapshot" },
 ];
@@ -19,6 +17,7 @@ export const LOCAL_COMMAND_NAMES = new Set(LOCAL_COMMAND_DEFINITIONS.map((comman
 export const COMMAND_CATEGORY_ORDER = ["local", "extension", "prompt", "skill"];
 export const AUTOCOMPLETE_DELIMITERS = new Set([" ", "\t", "\n", '"', "'", "="]);
 export const TOKEN_STORAGE_KEY = "pi-phone-token";
+export const ENTER_SENDS_STORAGE_KEY = "pi-phone-enter-sends";
 
 export const THEME_CSS_VARIABLES = {
   mdCode: "--md-code",
