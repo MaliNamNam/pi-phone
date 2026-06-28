@@ -19,7 +19,13 @@ export const mimeTypes: Record<string, string> = {
 };
 
 export function sanitizePublicPath(pathname: string): string | null {
-  const normalized = normalize(pathname).replace(/^\/+/, "");
+  // Strip leading slashes AND backslashes. On Windows, `normalize("/index.html")`
+  // yields `"\index.html"` (leading backslash); the old `/^\/+ /` only removed
+  // forward slashes, so `resolve(publicDir, "\index.html")` treated the
+  // leading backslash as an absolute path (-> `C:\index.html`), which fails the
+  // `startsWith(publicDir)` check and 403s every static-file request — including
+  // the index page, so the phone UI never loads on Windows.
+  const normalized = normalize(pathname).replace(/^[\\/]+/, "");
   const filePath = resolve(publicDir, normalized === "" ? "index.html" : normalized);
   if (!filePath.startsWith(publicDir)) return null;
   return filePath;
